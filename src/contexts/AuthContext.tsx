@@ -1,64 +1,117 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 
 /**
- * AuthContext — 管理员认证
+ * AuthContext — 用户认证
  *
- * 登录时输入 GitHub Token 来验证身份。
- * Token 存在浏览器 localStorage 中，不经过服务器。
- * 前端直接用 Token 调用 GitHub API 读取私密 wz 仓库。
+ * 登录后 JWT Token 存 localStorage，每次请求带 Authorization header。
  */
 
 interface AuthState {
   isLoggedIn: boolean;
-  /** GitHub Personal Access Token */
+  username: string | null;
+  role: string | null;
   token: string | null;
-  /** 用 GitHub Token 登录 */
-  login: (token: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
+  register: (username: string, password: string) => Promise<{ ok: boolean; error?: string }>;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem("gh_token");
-  });
+  const [token, setToken] = useState<string | null>(() =>
+    localStorage.getItem("auth_token")
+  );
+  const [username, setUsername] = useState<string | null>(() =>
+    localStorage.getItem("auth_username")
+  );
+  const [role, setRole] = useState<string | null>(() =>
+    localStorage.getItem("auth_role")
+  );
 
   const isLoggedIn = !!token;
 
-  /** 登录：用 GitHub Token 验证——尝试调用 API 看是否有效 */
-  const login = async (inputToken: string): Promise<boolean> => {
+  const login = async (
+    uname: string,
+    pwd: string
+  ): Promise<{ ok: boolean; error?: string }> => {
     try {
-      // 用 GitHub API 验证 Token 是否有效
-      const res = await fetch("https://api.github.com/user", {
-        headers: {
-          Authorization: `Bearer ${inputToken}`,
-          "User-Agent": "xdfq-blog",
-        },
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: uname, password: pwd }),
       });
 
-      if (!res.ok) return false;
+      const data = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        token?: string;
+        role?: string;
+      };
 
-      localStorage.setItem("gh_token", inputToken);
-      setToken(inputToken);
-      return true;
+      if (!res.ok || !data.success) {
+        return { ok: false, error: data.error || "登录失败" };
+      }
+
+      localStorage.setItem("auth_token", data.token!);
+      localStorage.setItem("auth_username", uname);
+      localStorage.setItem("auth_role", data.role!);
+      setToken(data.token!);
+      setUsername(uname);
+      setRole(data.role!);
+      return { ok: true };
     } catch {
-      return false;
+      return { ok: false, error: "网络错误" };
+    }
+  };
+
+  const register = async (
+    uname: string,
+    pwd: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: uname, password: pwd }),
+      });
+
+      const data = (await res.json()) as {
+        success?: boolean;
+        error?: string;
+        token?: string;
+        role?: string;
+      };
+
+      if (!res.ok || !data.success) {
+        return { ok: false, error: data.error || "注册失败" };
+      }
+
+      localStorage.setItem("auth_token", data.token!);
+      localStorage.setItem("auth_username", uname);
+      localStorage.setItem("auth_role", data.role!);
+      setToken(data.token!);
+      setUsername(uname);
+      setRole(data.role!);
+      return { ok: true };
+    } catch {
+      return { ok: false, error: "网络错误" };
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("gh_token");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_username");
+    localStorage.removeItem("auth_role");
     setToken(null);
+    setUsername(null);
+    setRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ isLoggedIn, token, login, logout }}>
+    <AuthContext.Provider
+      value={{ isLoggedIn, username, role, token, login, register, logout }}
+    >
       {children}
     </AuthContext.Provider>
   );
