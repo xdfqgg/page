@@ -6,7 +6,6 @@ import {
   BookOpen,
   MessageCircle,
   Tv,
-  Music,
   LogIn,
   LogOut,
   type LucideIcon,
@@ -42,8 +41,7 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/", label: "主页", icon: Home, end: true },
   { to: "/blog", label: "博客", icon: BookOpen },
   { to: "/forum", label: "论坛", icon: MessageCircle },
-  { to: "/anime", label: "番剧推荐", icon: Tv },
-  { to: "/music", label: "音乐", icon: Music },
+  { to: "/anime", label: "番剧", icon: Tv },
 ];
 
 /**
