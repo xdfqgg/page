@@ -1,6 +1,5 @@
-import { Link } from "react-router";
+import { useNavigate } from "react-router";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -33,7 +32,6 @@ interface FeatureCard {
   badge?: string;
   tags?: string[];
   linkTo: string;
-  linkLabel: string;
 }
 
 /** 功能卡片数据——新增功能在这里加一项 */
@@ -46,7 +44,6 @@ const FEATURES: FeatureCard[] = [
     badge: "NEW",
     tags: ["博客搭建", "前端", "后端"],
     linkTo: "/blog",
-    linkLabel: "阅读文章",
   },
   {
     icon: MessageCircle,
@@ -55,7 +52,6 @@ const FEATURES: FeatureCard[] = [
       "自由的社区讨论空间。提问、分享、交流，与志同道合的人一起成长。",
     tags: ["社区", "问答", "分享"],
     linkTo: "/forum",
-    linkLabel: "进入论坛",
   },
   {
     icon: Tv,
@@ -65,7 +61,6 @@ const FEATURES: FeatureCard[] = [
     badge: "NEW",
     tags: ["新番", "经典", "评测"],
     linkTo: "/anime",
-    linkLabel: "查看推荐",
   },
   {
     icon: Music,
@@ -74,7 +69,6 @@ const FEATURES: FeatureCard[] = [
       "分享喜欢的音乐，创建播放列表。放松心情，享受旋律。",
     tags: ["歌单", "分享", "放松"],
     linkTo: "/music",
-    linkLabel: "听听音乐",
   },
 ];
 
@@ -108,10 +102,14 @@ function FeatureCard({
   badge,
   tags,
   linkTo,
-  linkLabel,
 }: FeatureCard) {
+  const navigate = useNavigate();
+
   return (
-    <Card className="group relative flex flex-col border-primary/[0.1] bg-card hover:bg-primary/[0.03] transition-colors">
+    <Card
+      onClick={() => navigate(linkTo)}
+      className="group relative flex flex-col border-primary/[0.1] bg-card hover:bg-primary/[0.03] hover:border-primary/[0.2] transition-colors cursor-pointer"
+    >
       <CardHeader className="pb-3">
         {/* 顶部行：左边图标，右边 Badge */}
         <div className="flex items-start justify-between">
@@ -149,18 +147,6 @@ function FeatureCard({
         )}
       </CardContent>
 
-      {/* 底部链接（不使用 CardFooter，因为是隐藏的默认样式） */}
-      <div className="px-6 pb-5">
-        <Button
-          variant="link"
-          asChild
-          className="h-auto p-0 text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Link to={linkTo}>
-            {linkLabel} →
-          </Link>
-        </Button>
-      </div>
     </Card>
   );
 }
