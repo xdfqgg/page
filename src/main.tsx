@@ -30,7 +30,8 @@ import NotFound from "./pages/NotFound";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <BrowserRouter>
+    {/* basename: GitHub Pages 部署路径。本地 dev 时为空，构建时为 '/-/' */}
+    <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Layout />}>
           {/* 首页：Landing Page */}

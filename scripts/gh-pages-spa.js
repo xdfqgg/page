@@ -8,12 +8,18 @@
  *   而 404.html 就是 React 应用本身，
  *   React Router 接管后渲染正确的页面。
  */
-import { copyFileSync } from "fs";
+import { copyFileSync, writeFileSync, rmSync, cpSync } from "fs";
 import { join } from "path";
 
-const dist = "dist";
-const src = join(dist, "index.html");
-const dest = join(dist, "404.html");
+// 删除旧 docs 文件夹，复制 dist 到 docs
+const docs = "docs";
+rmSync(docs, { recursive: true, force: true });
+cpSync("dist", docs, { recursive: true });
 
-copyFileSync(src, dest);
-console.log("[gh-pages-spa] copied index.html → 404.html for SPA routing");
+// 告诉 GitHub Pages 不要用 Jekyll 处理
+writeFileSync(join(docs, ".nojekyll"), "");
+console.log("[gh-pages-spa] copied dist → docs, created .nojekyll");
+
+// SPA 路由修复
+copyFileSync(join(docs, "index.html"), join(docs, "404.html"));
+console.log("[gh-pages-spa] copied index.html → 404.html");

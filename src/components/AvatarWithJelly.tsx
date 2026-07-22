@@ -161,7 +161,7 @@ export default function AvatarWithJelly() {
           style={{ width: 120, height: 120, zIndex: 5 }}
         >
           <img
-            src="/avatar.png"
+            src={import.meta.env.BASE_URL + "avatar.png"}
             alt="头像"
             className="h-full w-full rounded-full object-cover scale-125 pointer-events-none"
             draggable={false}

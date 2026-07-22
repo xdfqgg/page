@@ -10,7 +10,8 @@ export default defineConfig({
   // base: 你的 GitHub 仓库名，末尾必须带 /
   // 例如仓库叫 "my-site" → base: '/my-site/'
   // 仓库叫 "-" → base: '/-/'
-  base: '/-/',
+  // Cloudflare Pages 部署时用 '/'，GitHub Pages 部署时改为 '/page/'
+  base: '/',
   plugins: [react(), tailwindcss(), cloudflare()],
   resolve: {
     alias: {
