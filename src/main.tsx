@@ -5,6 +5,7 @@ import "./index.css";
 import Layout from "./layouts/Layout";
 import Home from "./pages/Home";
 import Blog from "./pages/Blog";
+import PostPage from "./pages/Post";
 import Forum from "./pages/Forum";
 import Anime from "./pages/Anime";
 import Music from "./pages/Music";
@@ -36,8 +37,9 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<Layout />}>
           {/* 首页：Landing Page */}
           <Route index element={<Home />} />
-          {/* 博客列表页 */}
+          {/* 博客列表页 + 文章详情 */}
           <Route path="blog" element={<Blog />} />
+          <Route path="blog/:slug" element={<PostPage />} />
           {/* 论坛页 */}
           <Route path="forum" element={<Forum />} />
           {/* 番剧推荐页 */}
