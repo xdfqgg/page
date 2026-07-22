@@ -47,6 +47,7 @@ export default function AboutSection() {
           <CardTitle className="text-foreground text-xl">关于我</CardTitle>
           <CardDescription className="text-muted-foreground leading-relaxed">
             正在精进计算机技术。
+            那天,我使用了claude,我眩晕瘫坐在椅子上,就好像看见了核弹爆炸,
             这个页面基本配合大语言模型进行制作,
             欢迎通过以下方式与我交流。
           </CardDescription>
