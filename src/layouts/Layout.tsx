@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { cn } from "@/lib/utils";
 import {
+  Home,
   BookOpen,
   MessageCircle,
   Tv,
@@ -35,7 +36,8 @@ interface NavItem {
 
 /** 导航菜单配置——新增页面在这里加一项即可 */
 const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "博客", icon: BookOpen, end: true },
+  { to: "/", label: "主页", icon: Home, end: true },
+  { to: "/blog", label: "博客", icon: BookOpen },
   { to: "/forum", label: "论坛", icon: MessageCircle },
   { to: "/anime", label: "番剧推荐", icon: Tv },
   { to: "/music", label: "音乐", icon: Music },
