@@ -38,18 +38,17 @@ const SOCIAL_LINKS: SocialLink[] = [
 
 export default function AboutSection() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-16">
+    <section className="mx-auto max-w-5xl px-6 py-16 pb-24">
       <Separator className="mb-16 bg-primary/[0.1]" />
 
       {/* ─── 个人简介卡片 ─── */}
       <Card className="mx-auto max-w-2xl border-primary/[0.1] bg-card">
         <CardHeader className="text-center">
           <CardTitle className="text-foreground text-xl">关于我</CardTitle>
-          <CardDescription className="text-muted-foreground leading-relaxed">
-            正在精进计算机技术。
-            那天,我使用了claude,我眩晕瘫坐在椅子上,就好像看见了核弹爆炸,
-            这个页面基本配合大语言模型进行制作,
-            欢迎通过以下方式与我交流。
+          <CardDescription className="text-muted-foreground leading-relaxed space-y-3">
+            <p>正在精进计算机技术。</p>
+            <p>那天，我使用了 Claude，我眩晕瘫坐在椅子上，就好像看见了核弹爆炸。</p>
+            <p>这个页面基本配合大语言模型进行制作，欢迎通过以下方式与我交流。</p>
           </CardDescription>
         </CardHeader>
       </Card>
