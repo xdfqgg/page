@@ -6,16 +6,19 @@ import {
 } from "react";
 
 /**
- * AuthContext — 管理员认证状态管理
+ * AuthContext — 管理员认证
  *
- * 登录后 token 存 localStorage，刷新页面不丢失。
- * 退出时清除 token。
+ * 登录时输入 GitHub Token 来验证身份。
+ * Token 存在浏览器 localStorage 中，不经过服务器。
+ * 前端直接用 Token 调用 GitHub API 读取私密 wz 仓库。
  */
 
 interface AuthState {
   isLoggedIn: boolean;
+  /** GitHub Personal Access Token */
   token: string | null;
-  login: (password: string) => Promise<boolean>;
+  /** 用 GitHub Token 登录 */
+  login: (token: string) => Promise<boolean>;
   logout: () => void;
 }
 
@@ -23,38 +26,34 @@ const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => {
-    return localStorage.getItem("admin_token");
+    return localStorage.getItem("gh_token");
   });
 
   const isLoggedIn = !!token;
 
-  /** 登录：POST /api/auth 验证密码 */
-  const login = async (password: string): Promise<boolean> => {
+  /** 登录：用 GitHub Token 验证——尝试调用 API 看是否有效 */
+  const login = async (inputToken: string): Promise<boolean> => {
     try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
+      // 用 GitHub API 验证 Token 是否有效
+      const res = await fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${inputToken}`,
+          "User-Agent": "xdfq-blog",
+        },
       });
 
-      if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error || "登录失败");
-      }
+      if (!res.ok) return false;
 
-      const data = (await res.json()) as { token: string };
-      localStorage.setItem("admin_token", data.token);
-      setToken(data.token);
+      localStorage.setItem("gh_token", inputToken);
+      setToken(inputToken);
       return true;
-    } catch (err) {
-      console.error("登录失败:", err);
+    } catch {
       return false;
     }
   };
 
-  /** 退出 */
   const logout = () => {
-    localStorage.removeItem("admin_token");
+    localStorage.removeItem("gh_token");
     setToken(null);
   };
 
@@ -65,7 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-/** Hook：在组件中获取认证状态 */
 export function useAuth(): AuthState {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth 必须在 AuthProvider 内使用");
