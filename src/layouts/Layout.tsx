@@ -7,9 +7,12 @@ import {
   MessageCircle,
   Tv,
   Music,
+  LogIn,
+  LogOut,
   type LucideIcon,
 } from "lucide-react";
 import SakuraPetals from "@/components/SakuraPetals";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Layout — 全局布局（暗色极简风格，参考 2x.nz）
@@ -63,6 +66,7 @@ function useClock() {
 
 export default function Layout() {
   const clock = useClock();
+  const { isLoggedIn, logout } = useAuth();
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
@@ -100,6 +104,32 @@ export default function Layout() {
                 {item.label}
               </NavLink>
             ))}
+
+            {/* ─── 登录/退出按钮 ─── */}
+            {isLoggedIn ? (
+              <button
+                onClick={logout}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-primary/5 transition-colors cursor-pointer"
+              >
+                <LogOut className="h-4 w-4" />
+                退出
+              </button>
+            ) : (
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  cn(
+                    "inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                    isActive
+                      ? "bg-primary/12 text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-primary/5"
+                  )
+                }
+              >
+                <LogIn className="h-4 w-4" />
+                登录
+              </NavLink>
+            )}
           </nav>
         </div>
       </header>
