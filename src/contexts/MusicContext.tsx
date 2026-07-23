@@ -260,6 +260,11 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         const sameSong = a.src && a.src.includes(String(data.track.id));
         if (data.isPlaying && !sameSong && data.track?.url) {
           a.src = data.track.url;
+          // 计算应该从哪秒开始播放
+          if (data.startedAt) {
+            const elapsed = (Date.now() - data.startedAt) / 1000;
+            a.currentTime = elapsed > 0 ? elapsed : 0;
+          }
           let retries = 3;
           const tryPlay = async () => {
             try { await a.play(); setIsPlaying(true); return; } catch { /* blocked */ }
@@ -292,6 +297,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
           cover: currentTrack.cover, url: currentTrack.url || "",
         } : null,
         isPlaying,
+        startedAt: Date.now(), // 记录开始时间
         playlist: playlist.map(t => ({ id: t.id, name: t.name, artist: t.artist, album: t.album, cover: t.cover })),
         playlistName,
       }),
