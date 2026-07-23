@@ -15,7 +15,8 @@
       "WebFetch(domain:api-enhanced-main-r18ayn7j8-xdfq.vercel.app)",
       "WebFetch(domain:api-enhanced-main-orpin.vercel.app)",
       "WebFetch(domain:api.bgm.tv)",
-      "Bash(npx skills *)"
+      "Bash(npx skills *)",
+      "Bash(git checkout *)"
     ]
   }
 }
