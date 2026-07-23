@@ -177,7 +177,7 @@ export default function Hero() {
               next.scrollIntoView({ behavior: "smooth" });
             }
           }}
-          className="mx-auto mt-16 flex flex-col items-center gap-1 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer"
+          className="mx-auto mt-24 flex flex-col items-center gap-1 text-muted-foreground/40 hover:text-primary transition-colors cursor-pointer"
           aria-label="向下滚动"
         >
           <span className="text-xs tracking-widest uppercase">Scroll</span>
