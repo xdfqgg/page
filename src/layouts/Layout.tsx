@@ -68,6 +68,8 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
+      {/* 樱花飘落（fixed 全屏，不受页面滚动影响） */}
+      <SakuraPetals />
       {/* ─── 顶部导航栏 ─── */}
       <header className="sticky top-0 z-50 border-b border-primary/[0.08] bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
@@ -135,8 +137,6 @@ export default function Layout() {
 
       {/* ─── 页面内容 ─── */}
       <main className="relative">
-        {/* 花瓣飘落（absolute 定位在 main 内，跟随页面滚动） */}
-        <SakuraPetals />
         <Outlet />
       </main>
     </div>

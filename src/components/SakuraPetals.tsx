@@ -19,8 +19,8 @@ export default function SakuraPetals() {
     const container = containerRef.current;
     if (!container) return;
 
-    // 容器高度 = 页面内容实际高度
-    const height = container.scrollHeight || window.innerHeight;
+    // 使用视口高度（fixed 容器不受页面滚动影响）
+    const height = window.innerHeight;
     const petals: HTMLDivElement[] = [];
 
     // ─── 创建花瓣 ───
@@ -84,7 +84,7 @@ export default function SakuraPetals() {
   return (
     <div
       ref={containerRef}
-      className="pointer-events-none absolute inset-0 overflow-hidden"
+      className="pointer-events-none fixed inset-0 overflow-hidden"
       aria-hidden="true"
     />
   );
