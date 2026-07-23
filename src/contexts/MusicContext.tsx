@@ -27,12 +27,18 @@ interface MusicState {
   playlist: Track[];
   playlistName: string;
 
+  /** 用户歌单 */
+  userPlaylists: Array<{ id: number; name: string; cover: string; count: number }>;
+  fmTracks: Track[];
+
   /** 操作 */
   loginNetease: (phone: string, password: string) => Promise<string | null>;
   getQrKey: () => Promise<string>;
   getQrImage: (key: string) => Promise<string>;
   checkQr: (key: string) => Promise<number>;
   loadPlaylist: (id: number) => Promise<void>;
+  loadUserPlaylists: () => Promise<void>;
+  loadPersonalFm: () => Promise<void>;
   play: (track?: Track) => void;
   pause: () => void;
   next: () => void;
@@ -67,6 +73,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [playlistName, setPlaylistName] = useState("");
+  const [userPlaylists, setUserPlaylists] = useState<Array<{ id: number; name: string; cover: string; count: number }>>([]);
+  const [fmTracks, setFmTracks] = useState<Track[]>([]);
 
   /** 二维码登录 - 获取 key */
   const getQrKey = useCallback(async () => {
@@ -143,6 +151,36 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     setPlaylistName(data.playlist?.name || "");
   }, [cookie]);
 
+  /** 加载用户歌单列表 */
+  const loadUserPlaylists = useCallback(async () => {
+    const res = await fetch(`${API}/user/playlist?cookie=${cookie}`);
+    const data = await res.json() as any;
+    if (data.code !== 200) return;
+    const pls = (data.playlist || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      cover: p.coverImgUrl || "",
+      count: p.trackCount || 0,
+    }));
+    setUserPlaylists(pls);
+  }, [cookie]);
+
+  /** 加载私人 FM */
+  const loadPersonalFm = useCallback(async () => {
+    const res = await fetch(`${API}/personal_fm?cookie=${cookie}`);
+    const data = await res.json() as any;
+    if (data.code !== 200) return;
+    const tracks: Track[] = (data.data || []).map((s: any) => ({
+      id: s.id,
+      name: s.name,
+      artist: (s.ar || []).map((a: any) => a.name).join(" / "),
+      album: s.al?.name || "",
+      cover: s.al?.picUrl || "",
+    }));
+    setFmTracks(tracks);
+    if (tracks.length > 0) setPlaylist(tracks);
+  }, [cookie]);
+
   /** 获取歌曲播放地址并播放 */
   const play = useCallback(async (track?: Track) => {
     const t = track || currentTrack;
@@ -197,8 +235,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     <MusicContext.Provider value={{
       neteaseLoggedIn, neteaseProfile, cookie,
       currentTrack, isPlaying, playlist, playlistName,
+      userPlaylists, fmTracks,
       loginNetease, getQrKey, getQrImage, checkQr,
-      loadPlaylist, play, pause, next, prev,
+      loadPlaylist, loadUserPlaylists, loadPersonalFm,
+      play, pause, next, prev,
     }}>
       {children}
     </MusicContext.Provider>
