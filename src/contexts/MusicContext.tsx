@@ -260,7 +260,13 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         const sameSong = a.src && a.src.includes(String(data.track.id));
         if (data.isPlaying && !sameSong && data.track?.url) {
           a.src = data.track.url;
-          a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+          let retries = 3;
+          const tryPlay = async () => {
+            try { await a.play(); setIsPlaying(true); return; } catch { /* blocked */ }
+            if (--retries > 0) setTimeout(tryPlay, 500);
+            else setIsPlaying(false);
+          };
+          tryPlay();
         } else if (!data.isPlaying) {
           a.pause();
           setIsPlaying(false);
