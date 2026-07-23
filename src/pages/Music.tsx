@@ -11,7 +11,7 @@ export default function MusicPage() {
   const isAdmin = role === "admin";
   const {
     neteaseLoggedIn, neteaseProfile,
-    currentTrack, isPlaying, playlist, playlistName,
+    currentTrack, isPlaying, playlist, playlistName, currentPlaylistId,
     userPlaylists,
     loginNetease, logoutNetease, getQrKey, getQrImage, checkQr,
     loadPlaylist, loadUserPlaylists, loadPersonalFm, setDefaultPlaylist,
@@ -22,7 +22,6 @@ export default function MusicPage() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
-  const playlistId = "3778678";
   const [loginMode, setLoginMode] = useState<"qr" | "password">("qr");
 
   // QR 状态
@@ -31,8 +30,7 @@ export default function MusicPage() {
   const [qrKey, setQrKey] = useState(0); // 递增触发重新生成
   useEffect(() => {
     if (neteaseLoggedIn) {
-      loadUserPlaylists();
-      loadPlaylist(Number(playlistId));
+      loadUserPlaylists(); // 只加载用户歌单列表，不自动播热歌榜
     }
   }, [neteaseLoggedIn]);
 
@@ -189,7 +187,7 @@ export default function MusicPage() {
               <Radio className="h-4 w-4" />私人 FM
             </Button>
             {isAdmin && playlist.length > 0 && (
-              <Button variant="outline" onClick={() => setDefaultPlaylist(Number(playlistId))}
+              <Button variant="outline" onClick={() => setDefaultPlaylist(Number(currentPlaylistId))}
                 className="rounded-full border-primary/[0.12] bg-primary/[0.04] text-xs">设为默认歌单</Button>
             )}
           </div>

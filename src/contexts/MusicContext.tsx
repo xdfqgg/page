@@ -27,6 +27,7 @@ interface MusicState {
   isPlaying: boolean;
   playlist: Track[];
   playlistName: string;
+  currentPlaylistId: string;
 
   /** 用户歌单 */
   userPlaylists: Array<{ id: number; name: string; cover: string; count: number }>;
@@ -80,6 +81,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [playlistName, setPlaylistName] = useState("");
+  const [currentPlaylistId, setCurrentPlaylistId] = useState("");
   const [userPlaylists, setUserPlaylists] = useState<Array<{ id: number; name: string; cover: string; count: number }>>([]);
   const [fmTracks, setFmTracks] = useState<Track[]>([]);
 
@@ -181,6 +183,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
     setPlaylist(tracks);
     setPlaylistName(data.playlist?.name || "");
+    setCurrentPlaylistId(String(id));
   }, [cookie]);
 
   /** 加载用户歌单列表 */
@@ -331,7 +334,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   return (
     <MusicContext.Provider value={{
       neteaseLoggedIn, neteaseProfile, cookie,
-      currentTrack, isPlaying, playlist, playlistName,
+      currentTrack, isPlaying, playlist, playlistName, currentPlaylistId,
       userPlaylists, fmTracks,
       loginNetease, logoutNetease, getQrKey, getQrImage, checkQr,
       loadPlaylist, loadUserPlaylists, loadPersonalFm,
