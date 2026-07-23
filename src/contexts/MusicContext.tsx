@@ -1,5 +1,5 @@
 import {
-  createContext, useContext, useState, useCallback, useRef,
+  createContext, useContext, useState, useCallback,
   type ReactNode,
 } from "react";
 
@@ -291,27 +291,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     return () => clearInterval(timer);
   }, []) as unknown as () => void;
 
-  /** 获取歌曲播放地址并播放 */
-  /** 同步到后端（内部用，不依赖组件状态） */
-  const syncRef = useRef<() => Promise<void>>(async () => {});
-  syncRef.current = async () => {
-    await fetch(`${BACKEND}/api/music/now-playing`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        track: currentTrack ? {
-          id: currentTrack.id, name: currentTrack.name,
-          artist: currentTrack.artist, album: currentTrack.album,
-          cover: currentTrack.cover, url: currentTrack.url || "",
-        } : null,
-        isPlaying,
-        startedAt: Date.now(), // 记录开始时间
-        playlist: playlist.map(t => ({ id: t.id, name: t.name, artist: t.artist, album: t.album, cover: t.cover })),
-        playlistName,
-      }),
-    });
-  };
-
   const play = useCallback(async (track?: Track) => {
     const t = track || currentTrack;
     if (!t) return;
@@ -330,7 +309,14 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     audio.play();
     setCurrentTrack(t);
     setIsPlaying(true);
-    setTimeout(() => syncRef.current(), 100);
+    // 直接同步到后端
+    const syncData = {
+      track: { id: t.id, name: t.name, artist: t.artist, album: t.album, cover: t.cover },
+      isPlaying: true, startedAt: Date.now(),
+      playlist: playlist.map(p => ({ id: p.id, name: p.name, artist: p.artist, album: p.album, cover: p.cover })),
+      playlistName,
+    };
+    fetch(`${BACKEND}/api/music/now-playing`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(syncData) });
 
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -343,7 +329,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const pause = useCallback(() => {
     getAudio().pause();
     setIsPlaying(false);
-    setTimeout(() => syncRef.current(), 100);
+    fetch(`${BACKEND}/api/music/now-playing`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ isPlaying: false }) });
   }, []);
 
   const next = useCallback(() => {
@@ -351,7 +337,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const nextIdx = (idx + 1) % playlist.length;
     play(playlist[nextIdx]);
-    setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
   const prev = useCallback(() => {
@@ -359,7 +344,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const prevIdx = (idx - 1 + playlist.length) % playlist.length;
     play(playlist[prevIdx]);
-    setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
   // 自动续播：歌曲结束后自动下一首
@@ -368,7 +352,6 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const nextIdx = (idx + 1) % playlist.length;
     play(playlist[nextIdx]);
-    setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
   return (
