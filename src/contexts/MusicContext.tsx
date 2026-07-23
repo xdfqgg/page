@@ -260,9 +260,10 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         const sameSong = a.src && a.src.includes(String(data.track.id));
         if (data.isPlaying && !sameSong && data.track?.url) {
           a.src = data.track.url;
-          a.play().catch(() => {});
+          a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
         } else if (!data.isPlaying) {
           a.pause();
+          setIsPlaying(false);
         }
       } catch { /* 无数据 */ }
     };

@@ -66,20 +66,20 @@ function useClock() {
 export default function Layout() {
   const clock = useClock();
   const { isLoggedIn, username, logout } = useAuth();
-  const { initMusic, play, currentTrack, isPlaying } = useMusic();
+  const { initMusic, play, currentTrack } = useMusic();
 
   // 页面加载时初始化音乐
   useEffect(() => { initMusic(); }, []);
 
-  // 首次点击页面时尝试播放（浏览器禁止自动播放）
+  // 首次点击页面时尝试播放（浏览器禁止自动播放后的恢复）
   useEffect(() => {
     const tryPlay = () => {
-      if (currentTrack && !isPlaying) play();
+      if (currentTrack) play();
       document.removeEventListener("click", tryPlay);
     };
     document.addEventListener("click", tryPlay);
     return () => document.removeEventListener("click", tryPlay);
-  }, [currentTrack, isPlaying]);
+  }, [currentTrack]);
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">
