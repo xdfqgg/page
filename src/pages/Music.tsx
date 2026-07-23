@@ -43,6 +43,7 @@ export default function MusicPage() {
   // 预加载：管理员未登录时立即获取 key
   useEffect(() => {
     if (isAdmin && !neteaseLoggedIn) {
+      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
       getQrKey().then((key) => {
         if (key && !qrImage) {
           getQrImage(key).then((img) => {
@@ -53,7 +54,7 @@ export default function MusicPage() {
             }
           });
         }
-      });
+      }).catch(() => setQrStatus("加载失败，请刷新"));
     }
   }, [isAdmin, neteaseLoggedIn]);
 
@@ -78,15 +79,21 @@ export default function MusicPage() {
 
   /** 重新生成二维码 */
   const startQrLogin = async () => {
+    // 清除旧定时器
+    if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
     setQrImage("");
     setQrStatus("生成中...");
-    const key = await getQrKey();
-    if (!key) { setQrStatus("获取二维码失败"); return; }
-    const img = await getQrImage(key);
-    if (!img) { setQrStatus("生成二维码失败"); return; }
-    setQrImage(img);
-    setQrStatus("请用网易云 App 扫码");
-    startPolling(key);
+    try {
+      const key = await getQrKey();
+      if (!key) { setQrStatus("获取二维码失败，请重试"); return; }
+      const img = await getQrImage(key);
+      if (!img) { setQrStatus("生成二维码失败，请重试"); return; }
+      setQrImage(img);
+      setQrStatus("请用网易云 App 扫码");
+      startPolling(key);
+    } catch {
+      setQrStatus("网络错误，请重试");
+    }
   };
 
   const handleLogin = async (e: React.FormEvent) => {
