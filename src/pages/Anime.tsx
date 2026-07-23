@@ -32,10 +32,24 @@ export default function AnimePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${BGM}/users/${USER}/collections?subject_type=2&type=3&limit=50`)
-      .then(r => { if (!r.ok) throw new Error("请求失败"); return r.json(); })
-      .then(d => setCollections((d as any).data || []))
-      .catch(() => setError("加载失败，Bangumi API 可能需要代理"))
+    fetch(`${BGM}/users/${USER}/collections?subject_type=2&type=3&limit=50`, {
+      headers: { "User-Agent": "xdfq-blog/1.0" },
+    })
+      .then(d => {
+        const data = (d as any).data;
+        if (data?.length) setCollections(data);
+        else throw new Error("无数据");
+      })
+      .catch(async () => {
+        // fallback: 直接请求用户收藏列表（老API）
+        try {
+          const r = await fetch(`https://api.bgm.tv/v0/users/${USER}/collections?subject_type=2&limit=50`);
+          const d = await r.json();
+          setCollections((d as any).data || []);
+        } catch {
+          setError("Bangumi API 被墙了，请开梯子");
+        }
+      })
       .finally(() => setLoading(false));
   }, []);
 
