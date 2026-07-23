@@ -245,50 +245,43 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  /** 初始化 + 轮询同步（返回清理函数） */
+  /** 初始化 + 轮询同步 */
   const initMusic = useCallback(() => {
+    let stopped = false;
+    let lastTrackId = 0;
+
     const sync = async () => {
+      if (stopped) return;
       try {
         const res = await fetch(`${BACKEND}/api/music/now-playing`);
         const data = await res.json() as any;
-        if (!data.track) return;
 
         setCurrentTrack(data.track);
         setIsPlaying(data.isPlaying);
-        setPlaylist(data.playlist || []);
-        setPlaylistName(data.playlistName || "");
+        if (data.playlist?.length) setPlaylist(data.playlist);
+        if (data.playlistName) setPlaylistName(data.playlistName);
+
+        if (!data.track || lastTrackId === data.track.id) return;
+        lastTrackId = data.track.id;
 
         const a = getAudio();
-        // 用歌曲 ID 判断是否是同一首歌
-        const currentId = (a as any)._trackId;
-        const sameSong = currentId === data.track.id;
-        if (data.isPlaying && !sameSong && data.track) {
-          // 获取新的播放 URL（旧的已过期）
+        if (data.isPlaying) {
           const urlRes = await fetch(`${NE_API}/song/url/v1?id=${data.track.id}&level=standard`);
           const urlData = await urlRes.json() as any;
           const url = urlData.data?.[0]?.url;
-          if (!url) return;
-          (a as any)._trackId = data.track.id;
+          if (!url || stopped) return;
+
           a.src = url;
-          if (data.startedAt) {
-            a.currentTime = Math.max(0, (Date.now() - data.startedAt) / 1000);
-          }
-          let retries = 3;
-          const tryPlay = async () => {
-            try { await a.play(); setIsPlaying(true); return; } catch {}
-            if (--retries > 0) setTimeout(tryPlay, 500);
-            else setIsPlaying(false);
-          };
-          tryPlay();
-        } else if (!data.isPlaying) {
+          if (data.startedAt) a.currentTime = Math.max(0, (Date.now() - data.startedAt) / 1000);
+          a.play().catch(() => {});
+        } else {
           a.pause();
-          setIsPlaying(false);
         }
-      } catch { /* 无数据 */ }
+      } catch { /* ignore */ }
     };
     sync();
-    const timer = setInterval(sync, 5000);
-    return () => clearInterval(timer);
+    const timer = setInterval(sync, 3000);
+    return () => { stopped = true; clearInterval(timer); };
   }, []) as unknown as () => void;
 
   const play = useCallback(async (track?: Track) => {
