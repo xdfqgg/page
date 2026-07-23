@@ -61,15 +61,18 @@ export default function AvatarWithJelly() {
 
     const driver = { angle: 0 };
     const anim = animate(driver, {
-      angle: Math.PI * 2, duration: 10000, ease: "linear", loop: true,
+      angle: Math.PI * 2, duration: 25000, ease: "linear", loop: true,
       onUpdate: () => {
         all.forEach((d) => {
           const a = driver.angle * d.speed + d.offset;
           d.el.style.translate = `${Math.cos(a) * d.rx}px ${Math.sin(a) * d.ry}px`;
-          // 右边=前面(在头像上方), 左边=后面(在头像下方)
-          const isFront = Math.cos(a) > 0.02;
-          if (isFront && d.el.parentElement === back) front.appendChild(d.el);
-          else if (!isFront && d.el.parentElement === front) back.appendChild(d.el);
+          // cos(a) > 0 = 粒子在右半边 = 在头像前面
+          const inFront = Math.cos(a) > 0;
+          if (inFront && d.el.parentElement === back) {
+            front.appendChild(d.el);
+          } else if (!inFront && d.el.parentElement === front) {
+            back.appendChild(d.el);
+          }
         });
       },
     });
