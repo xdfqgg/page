@@ -350,9 +350,22 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   onEnded = useCallback(() => {
     if (playlist.length === 0) return;
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
+    if (idx === -1) return;
     const nextIdx = (idx + 1) % playlist.length;
-    play(playlist[nextIdx]);
-  }, [playlist, currentTrack, play]);
+    const nextTrack = playlist[nextIdx];
+    // 先同步切歌到后端，再播放
+    fetch(`${BACKEND}/api/music/now-playing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        track: { id: nextTrack.id, name: nextTrack.name, artist: nextTrack.artist, album: nextTrack.album, cover: nextTrack.cover },
+        isPlaying: true, startedAt: Date.now(),
+        playlist: playlist.map(p => ({ id: p.id, name: p.name, artist: p.artist, album: p.album, cover: p.cover })),
+        playlistName,
+      }),
+    });
+    play(nextTrack);
+  }, [playlist, currentTrack, play, playlistName]);
 
   return (
     <MusicContext.Provider value={{
