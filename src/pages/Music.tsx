@@ -61,13 +61,19 @@ export default function MusicPage() {
           startQrLogin(); // 过期自动刷新
           break;
         case 801: break;
-        case 802: setQrStatus("已扫描，请在手机上确认"); break;
+        case 802:
+          setQrStatus("已扫描，请在手机上确认");
+          // 已扫描，加速轮询
+          stopPoll();
+          poll(); // 立即检查一次
+          qrTimerRef.current = window.setInterval(poll, 1000);
+          break;
         case 803: setQrStatus("登录成功！"); setQrImage(""); stopPoll(); break;
       }
     };
     stopPoll();
     poll();
-    qrTimerRef.current = window.setInterval(poll, 2000);
+    qrTimerRef.current = window.setInterval(poll, 1000);
   };
 
   const startQrLogin = async () => {
