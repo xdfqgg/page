@@ -32,7 +32,7 @@ export default function AnimePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch(`${BGM}/users/${USER}/collections?subject_type=2&type=3&limit=50`, {
+    fetch(`${BGM}/users/${USER}/collections?subject_type=2&collection_type=3&limit=50`, {
       headers: { "User-Agent": "xdfq-blog/1.0" },
     })
       .then(d => {
