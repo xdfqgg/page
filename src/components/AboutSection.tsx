@@ -38,7 +38,7 @@ const SOCIAL_LINKS: SocialLink[] = [
 
 export default function AboutSection() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-16 pb-24">
+    <section className="mx-auto max-w-5xl px-6 py-16 pb-40">
       <Separator className="mb-16 bg-primary/[0.1]" />
 
       {/* ─── 个人简介卡片 ─── */}
