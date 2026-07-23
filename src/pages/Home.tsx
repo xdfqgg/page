@@ -16,6 +16,10 @@ export default function Home() {
   return (
     <>
       <Hero />
+      {/* 装饰分割线 */}
+      <div className="mx-auto max-w-5xl px-6">
+        <div className="h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
+      </div>
       <FeatureGrid />
       <AboutSection />
       <BackToTop />
