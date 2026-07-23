@@ -13,6 +13,7 @@ export default function AvatarWithJelly() {
   const backRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
+  const shineRef = useRef<HTMLDivElement>(null);
 
   /* ─── 光环轨道 ─── */
   useEffect(() => {
@@ -58,6 +59,33 @@ export default function AvatarWithJelly() {
     return () => { anim.pause(); all.forEach(d => d.el.remove()); ringEls.forEach(r => r.remove()); };
   }, []);
 
+  /* ─── Hover 高光追踪 ─── */
+  useEffect(() => {
+    const el = avatarRef.current;
+    const shine = shineRef.current;
+    if (!el || !shine) return;
+
+    const handler = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx, dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 200) {
+        const t = 1 - dist / 200;
+        const sx = 50 + (dx / (dist || 1)) * 20 * t;
+        const sy = 50 + (dy / (dist || 1)) * 16 * t;
+        shine.style.background = `radial-gradient(ellipse at ${sx}% ${sy}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.03) 55%, transparent 72%)`;
+        shine.style.opacity = "1";
+        el.style.boxShadow = `0 0 ${25 + 15 * t}px ${4 + 6 * t}px oklch(0.7 0.2 85 / ${0.2 + t * 0.25}), 0 0 ${55 + 35 * t}px ${10 + 15 * t}px oklch(0.7 0.2 85 / ${0.08 + t * 0.1})`;
+      }
+    };
+
+    window.addEventListener("mousemove", handler);
+    return () => window.removeEventListener("mousemove", handler);
+  }, []);
+
   /* ─── Click 涟漪 ─── */
   const handleClick = useCallback(() => {
     const el = avatarRef.current;
@@ -77,7 +105,7 @@ export default function AvatarWithJelly() {
       {/* 光环后层 */}
       <div ref={backRef} className="absolute inset-0 z-0" />
 
-      {/* 水滴头像 */}
+      {/* 水滴头像 + 呼吸光晕 */}
       <div
         ref={avatarRef}
         onClick={handleClick}
@@ -85,21 +113,19 @@ export default function AvatarWithJelly() {
         style={{
           width: 120, height: 120, zIndex: 1,
           boxShadow: "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)",
-          transition: "box-shadow 0.5s, transform 0.3s",
+          animation: "breathe-amber 3s ease-in-out infinite",
         }}
-        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 40px 10px oklch(0.7 0.2 85 / 0.35), 0 0 90px 22px oklch(0.7 0.2 85 / 0.15)"; e.currentTarget.style.transform = "scale(1.03)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)"; e.currentTarget.style.transform = "scale(1)"; }}
         role="img" aria-label="头像"
       >
         <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
           className="absolute inset-0 h-full w-full rounded-full object-cover pointer-events-none"
           draggable={false} />
-        {/* 玻璃反光 */}
+        {/* 高光点（hover 追踪鼠标） */}
+        <div ref={shineRef} className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 42% 32%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)", opacity: 0.7 }} />
+        {/* 底部反光（水珠坐在桌面） */}
         <div className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 35% 25%, rgba(255,255,255,0.25) 0%, transparent 50%)" }} />
-        {/* 底部反光 */}
-        <div className="absolute inset-0 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(ellipse at 50% 88%, rgba(255,255,255,0.1) 0%, transparent 30%)" }} />
+          style={{ background: "radial-gradient(ellipse at 50% 88%, rgba(255,255,255,0.15) 0%, transparent 30%)" }} />
       </div>
 
       {/* 光环前层 */}

@@ -9,6 +9,10 @@ export default function Hero() {
           0%, 100% { transform: translateY(0); opacity: 0.4; }
           50%      { transform: translateY(8px); opacity: 0.8; }
         }
+        @keyframes breathe-amber {
+          0%, 100% { box-shadow: 0 0 20px 2px oklch(0.7 0.2 85 / 0.15), 0 0 50px 6px oklch(0.7 0.2 85 / 0.06); }
+          50%      { box-shadow: 0 0 35px 10px oklch(0.7 0.2 85 / 0.3), 0 0 70px 18px oklch(0.7 0.2 85 / 0.12); }
+        }
       `}</style>
 
       <div className="absolute inset-0 opacity-[0.04]"
