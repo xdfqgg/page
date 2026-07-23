@@ -140,15 +140,13 @@ export default function MusicPage() {
     play((currentIdx - 1 + playlist.length) % playlist.length);
   };
 
-  // 歌曲结束：单曲循环直接 replay，其他模式下一首
+  // 歌曲结束自动下一首
   useEffect(() => {
     const a = getAudio();
-    const ended = () => {
+    a.onended = () => {
       if (playMode === 1) { a.currentTime = 0; a.play(); }
       else nextRef.current();
     };
-    a.addEventListener("ended", ended);
-    return () => a.removeEventListener("ended", ended);
   }, [playMode]);
 
   // 管理员加载歌单
