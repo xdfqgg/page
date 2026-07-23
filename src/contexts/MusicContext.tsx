@@ -4,7 +4,7 @@ import {
 } from "react";
 
 /** 网易云 API 地址 */
-const API = "https://api-enhanced-main-r18ayn7j8-xdfq.vercel.app";
+const API = "https://api-enhanced-main-orpin.vercel.app";
 
 interface Track {
   id: number;
