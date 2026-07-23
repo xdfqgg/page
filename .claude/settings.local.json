@@ -10,7 +10,9 @@
       "Bash(curl *)",
       "WebFetch(domain:cf-backend-lake.vercel.app)",
       "Bash(node *)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(powershell.exe *)",
+      "WebFetch(domain:api-enhanced-main-r18ayn7j8-xdfq.vercel.app)"
     ]
   }
 }

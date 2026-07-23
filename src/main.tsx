@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router";
 import { AuthProvider } from "./contexts/AuthContext";
+import { MusicProvider } from "./contexts/MusicContext";
 import "./index.css";
 import Layout from "./layouts/Layout";
 import Home from "./pages/Home";
@@ -34,6 +35,7 @@ import NotFound from "./pages/NotFound";
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <AuthProvider>
+    <MusicProvider>
     <BrowserRouter basename={import.meta.env.BASE_URL}>
       <Routes>
         <Route path="/" element={<Layout />}>
@@ -51,6 +53,7 @@ createRoot(document.getElementById("root")!).render(
         </Route>
       </Routes>
     </BrowserRouter>
+    </MusicProvider>
     </AuthProvider>
   </StrictMode>
 );

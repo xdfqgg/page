@@ -11,6 +11,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import SakuraPetals from "@/components/SakuraPetals";
+import MusicBar from "@/components/MusicBar";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
@@ -139,6 +140,9 @@ export default function Layout() {
         <SakuraPetals />
         <Outlet />
       </main>
+
+      {/* 底部播放栏（全站持久） */}
+      <MusicBar />
     </div>
   );
 }
