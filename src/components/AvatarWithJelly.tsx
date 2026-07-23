@@ -2,63 +2,74 @@ import { useRef, useEffect, useCallback } from "react";
 import { animate } from "animejs";
 
 /**
- * Avatar — 3D 行星环 + 碎片头像
+ * Avatar — 微光粒子环绕 + 玻璃质感
+ *
+ *   少量漂浮粒子在头像后方环绕
+ *   头像本身干净简洁，玻璃反光 + 暖光晕
+ *   hover 光晕加强，click 涟漪
  */
 
-// 轨道配置：颜色、粒子数、大小、速度、半径、3D 倾斜
-const RINGS = [
-  { color: "oklch(0.7 0.2 85 / 0.9)", count: 16, size: 3, speed: 10, rx: 88, ry: 28, z: 0 },
-  { color: "oklch(0.65 0.15 20 / 0.7)", count: 10, size: 2, speed: 7, rx: 78, ry: 22, z: 5 },
-  { color: "rgba(255,255,255,0.6)", count: 6, size: 2.5, speed: 14, rx: 95, ry: 20, z: -5 },
+const COLORS = [
+  "oklch(0.72 0.2 85 / 0.8)",
+  "oklch(0.65 0.15 20 / 0.6)",
+  "rgba(255,255,255,0.5)",
 ];
 
 export default function AvatarWithJelly() {
   const containerRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
 
-  /* ─── 3D 粒子环 ─── */
+  /* ─── 漂浮粒子（在头像后方） ─── */
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
 
-    const drivers = RINGS.map((cfg) => {
-      const dots: HTMLDivElement[] = [];
-      for (let i = 0; i < cfg.count; i++) {
-        const dot = document.createElement("div");
-        dot.className = "absolute rounded-full pointer-events-none";
-        dot.style.cssText = `
-          width:${cfg.size}px; height:${cfg.size}px; background:${cfg.color};
-          box-shadow:0 0 6px 2px ${cfg.color};
-          left:50%; top:50%; z-index:${cfg.z};
-        `;
-        container.appendChild(dot);
-        dots.push(dot);
-      }
-      return { dots, rx: cfg.rx, ry: cfg.ry, speed: cfg.speed };
-    });
+    const dots: HTMLDivElement[] = [];
+    const orbits: Array<{ r: number; angle: number; speed: number; y: number; ySpeed: number }> = [];
 
-    const driver = { t: 0 };
-    const anim = animate(driver, {
-      t: Math.PI * 2,
-      duration: 20000,
-      ease: "linear",
-      loop: true,
-      onUpdate: () => {
-        drivers.forEach((d) => {
-          d.dots.forEach((dot, i) => {
-            const a = driver.t * (d.speed / 10) + (i / d.dots.length) * Math.PI * 2;
-            dot.style.translate = `${Math.cos(a) * d.rx}px ${Math.sin(a) * d.ry}px`;
-            // 模拟 3D：根据 y 位置调整缩放和透明度
-            const yRatio = Math.sin(a);
-            const scale = 0.5 + (1 - Math.abs(yRatio)) * 0.5;
-            dot.style.scale = String(scale);
-            dot.style.opacity = String(0.3 + (1 - Math.abs(yRatio)) * 0.7);
-          });
-        });
-      },
-    });
+    for (let i = 0; i < 12; i++) {
+      const dot = document.createElement("div");
+      dot.className = "absolute rounded-full pointer-events-none";
+      dot.style.cssText = `
+        width:3px; height:3px; background:${COLORS[i % COLORS.length]};
+        box-shadow:0 0 5px 2px ${COLORS[i % COLORS.length]};
+        left:50%; top:50%; z-index:0;
+      `;
+      container.appendChild(dot);
+      dots.push(dot);
 
-    return () => { anim.pause(); drivers.forEach(d => d.dots.forEach(dot => dot.remove())); };
+      orbits.push({
+        r: 72 + Math.random() * 30,
+        angle: Math.random() * Math.PI * 2,
+        speed: 0.3 + Math.random() * 0.5,
+        y: -15 + Math.random() * 30,
+        ySpeed: 0.1 + Math.random() * 0.3,
+      });
+    }
+
+    let raf: number;
+    let last = performance.now();
+
+    const tick = (now: number) => {
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      dots.forEach((dot, i) => {
+        const o = orbits[i];
+        o.angle += o.speed * dt;
+        o.y += o.ySpeed * dt * (Math.sin(o.angle * 3) > 0 ? 1 : -1);
+        o.y = Math.max(-20, Math.min(20, o.y));
+        const x = Math.cos(o.angle) * o.r;
+        dot.style.translate = `${x}px ${o.y}px`;
+        // 远处（左边）缩小变淡
+        const scale = 0.4 + (Math.cos(o.angle) + 1) / 2 * 0.6;
+        dot.style.scale = String(scale);
+        dot.style.opacity = String(0.2 + scale * 0.8);
+      });
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    return () => { cancelAnimationFrame(raf); dots.forEach(d => d.remove()); };
   }, []);
 
   /* ─── Hover ─── */
@@ -76,6 +87,7 @@ export default function AvatarWithJelly() {
           0 0 ${25 + 20 * t}px ${4 + 8 * t}px oklch(0.7 0.2 85 / ${0.2 + t * 0.3}),
           0 0 ${60 + 40 * t}px ${10 + 20 * t}px oklch(0.7 0.2 85 / ${0.08 + t * 0.12})
         `;
+        el.style.transform = `scale(${1 + t * 0.03})`;
       }
     };
     window.addEventListener("mousemove", handler);
@@ -97,43 +109,26 @@ export default function AvatarWithJelly() {
   }, []);
 
   return (
-    <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
-      {/* 3D 粒子环 */}
-      <div ref={containerRef} className="absolute inset-0" style={{ perspective: 600, transformStyle: "preserve-3d", transform: "rotateX(55deg)" }} />
+    <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 200, height: 200 }}>
+      {/* 粒子容器（z-index:0，在头像后面） */}
+      <div ref={containerRef} className="absolute inset-0 z-0" />
 
       {/* 头像 */}
       <div
         ref={avatarRef}
         onClick={handleClick}
-        className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-visible"
+        className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-hidden transition-transform duration-300"
         style={{
-          width: 120, height: 120, zIndex: 10,
+          width: 120, height: 120, zIndex: 1,
           boxShadow: "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)",
         }} role="img" aria-label="头像"
       >
-        {/* 碎片 */}
-        <div className="absolute inset-0 rounded-full overflow-hidden">
-          <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
-            className="absolute inset-0 h-full w-full object-cover scale-110 pointer-events-none"
-            draggable={false}
-            style={{
-              clipPath: "polygon(0 0, 45% 0, 42% 35%, 55% 30%, 58% 0, 100% 0, 100% 100%, 60% 100%, 55% 70%, 40% 75%, 38% 100%, 0 100%)",
-            }} />
-        </div>
-
-        {/* 裂痕线 */}
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10 rounded-full" viewBox="0 0 120 120">
-          <line x1="45" y1="0" x2="42" y2="35" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-          <line x1="42" y1="35" x2="55" y2="30" stroke="rgba(255,255,255,0.12)" strokeWidth="0.8" />
-          <line x1="55" y1="30" x2="58" y2="0" stroke="rgba(255,255,255,0.15)" strokeWidth="1" />
-          <line x1="55" y1="70" x2="60" y2="100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
-          <line x1="40" y1="75" x2="38" y2="100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.8" />
-          <line x1="55" y1="30" x2="55" y2="70" stroke="rgba(255,255,255,0.08)" strokeWidth="0.6" />
-        </svg>
-
+        <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
+          className="absolute inset-0 h-full w-full rounded-full object-cover pointer-events-none"
+          draggable={false} />
         {/* 玻璃反光 */}
-        <div className="absolute inset-0 rounded-full pointer-events-none z-10"
-          style={{ background: "radial-gradient(ellipse at 40% 30%, rgba(255,255,255,0.2) 0%, transparent 55%)" }} />
+        <div className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ background: "radial-gradient(ellipse at 38% 28%, rgba(255,255,255,0.25) 0%, transparent 50%)" }} />
       </div>
     </div>
   );
