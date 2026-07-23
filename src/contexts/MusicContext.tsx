@@ -193,17 +193,22 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  /** 初始化：加载默认歌单并自动播放 */
+  /** 初始化：仅当管理员设定了默认歌单才加载 */
   const initMusic = useCallback(async () => {
     try {
-      // 如果管理员已登录网易云，用管理员设定
       const res = await fetch(`${BACKEND}/api/music/config`);
-      const config = await res.json() as { playlistId?: string };
-      const id = Number(config.playlistId || "3778678");
-      loadPlaylist(id);
-    } catch {
-      loadPlaylist(3778678); // 默认热歌榜
-    }
+      const config = await res.json() as { playlistId?: string; updated?: string };
+      // 只有管理员主动设置过的才播放
+      if (config.updated && config.playlistId) {
+        loadPlaylist(Number(config.playlistId));
+        // 等歌单加载完后自动播第一首
+        setTimeout(() => {
+          if (globalAudio && currentTrack) {
+            play(currentTrack);
+          }
+        }, 2000);
+      }
+    } catch { /* 无配置，不播放 */ }
   }, [loadPlaylist]);
 
   /** 获取歌曲播放地址并播放 */
