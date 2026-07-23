@@ -1,5 +1,5 @@
 import {
-  createContext, useContext, useState, useCallback,
+  createContext, useContext, useState, useCallback, useRef,
   type ReactNode,
 } from "react";
 
@@ -43,7 +43,7 @@ interface MusicState {
   loadUserPlaylists: () => Promise<void>;
   loadPersonalFm: () => Promise<void>;
   setDefaultPlaylist: (id: number) => Promise<void>;
-  initMusic: () => Promise<void>;
+  initMusic: () => void;
   play: (track?: Track) => void;
   pause: () => void;
   next: () => void;
@@ -243,45 +243,54 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  /** 初始化：管理员设定了默认歌单才加载并自动播放 */
-  const initMusic = useCallback(async () => {
-    try {
-      const res = await fetch(`${BACKEND}/api/music/config`);
-      const config = await res.json() as { playlistId?: string; updated?: string };
-      if (config.updated && config.playlistId) {
-        // 加载歌单
-        const plRes = await fetch(`${NE_API}/playlist/track/all?id=${config.playlistId}&cookie=${cookie}`);
-        const plData = await plRes.json() as any;
-        if (plData.code !== 200) return;
+  /** 初始化 + 轮询同步（返回清理函数） */
+  const initMusic = useCallback(() => {
+    const sync = async () => {
+      try {
+        const res = await fetch(`${BACKEND}/api/music/now-playing`);
+        const data = await res.json() as any;
+        if (!data.track) return;
 
-        const tracks: Track[] = (plData.songs || []).map((s: any) => ({
-          id: s.id, name: s.name,
-          artist: (s.ar || []).map((a: any) => a.name).join(" / "),
-          album: s.al?.name || "", cover: s.al?.picUrl || "",
-        }));
-        setPlaylist(tracks);
-        setPlaylistName(plData.playlist?.name || "");
+        setCurrentTrack(data.track);
+        setIsPlaying(data.isPlaying);
+        setPlaylist(data.playlist || []);
+        setPlaylistName(data.playlistName || "");
 
-        // 获取第一首 URL 并播放
-        if (tracks.length > 0) {
-          const t = tracks[0];
-          const urlRes = await fetch(`${NE_API}/song/url/v1?id=${t.id}&level=standard&cookie=${cookie}`);
-          const urlData = await urlRes.json() as any;
-          const url = urlData.data?.[0]?.url;
-          if (url) {
-            t.url = url;
-            const a = getAudio();
-            a.src = url;
-            a.play().catch(() => {}); // 浏览器可能禁止自动播放，第一次点击后触发
-            setCurrentTrack(t);
-            setIsPlaying(true);
-          }
+        const a = getAudio();
+        const sameSong = a.src && a.src.includes(String(data.track.id));
+        if (data.isPlaying && !sameSong && data.track?.url) {
+          a.src = data.track.url;
+          a.play().catch(() => {});
+        } else if (!data.isPlaying) {
+          a.pause();
         }
-      }
-    } catch { /* 无配置 */ }
-  }, []);
+      } catch { /* 无数据 */ }
+    };
+    sync();
+    const timer = setInterval(sync, 5000);
+    return () => clearInterval(timer);
+  }, []) as unknown as () => void;
 
   /** 获取歌曲播放地址并播放 */
+  /** 同步到后端（内部用，不依赖组件状态） */
+  const syncRef = useRef<() => Promise<void>>(async () => {});
+  syncRef.current = async () => {
+    await fetch(`${BACKEND}/api/music/now-playing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        track: currentTrack ? {
+          id: currentTrack.id, name: currentTrack.name,
+          artist: currentTrack.artist, album: currentTrack.album,
+          cover: currentTrack.cover, url: currentTrack.url || "",
+        } : null,
+        isPlaying,
+        playlist: playlist.map(t => ({ id: t.id, name: t.name, artist: t.artist, album: t.album, cover: t.cover })),
+        playlistName,
+      }),
+    });
+  };
+
   const play = useCallback(async (track?: Track) => {
     const t = track || currentTrack;
     if (!t) return;
@@ -300,13 +309,11 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     audio.play();
     setCurrentTrack(t);
     setIsPlaying(true);
+    setTimeout(() => syncRef.current(), 100);
 
-    // 设置媒体会话（浏览器通知栏显示）
     if ("mediaSession" in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
-        title: t.name,
-        artist: t.artist,
-        album: t.album,
+        title: t.name, artist: t.artist, album: t.album,
         artwork: [{ src: t.cover, sizes: "300x300", type: "image/jpg" }],
       });
     }
@@ -315,6 +322,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const pause = useCallback(() => {
     getAudio().pause();
     setIsPlaying(false);
+    setTimeout(() => syncRef.current(), 100);
   }, []);
 
   const next = useCallback(() => {
@@ -322,6 +330,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const nextIdx = (idx + 1) % playlist.length;
     play(playlist[nextIdx]);
+    setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
   const prev = useCallback(() => {
@@ -329,6 +338,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const prevIdx = (idx - 1 + playlist.length) % playlist.length;
     play(playlist[prevIdx]);
+    setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
   return (
