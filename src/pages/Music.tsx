@@ -179,14 +179,14 @@ export default function MusicPage() {
         </Card>
       )}
 
-      {/* 登录后 */}
-      {neteaseLoggedIn && (
+      {/* 管理员：完整控制面板 */}
+      {isAdmin && neteaseLoggedIn && (
         <div className="space-y-8">
           <div className="flex gap-3">
             <Button variant="outline" onClick={loadPersonalFm} className="flex-1 rounded-full border-primary/[0.12] bg-primary/[0.04]">
               <Radio className="h-4 w-4" />私人 FM
             </Button>
-            {isAdmin && playlist.length > 0 && (
+            {playlist.length > 0 && (
               <Button variant="outline" onClick={() => setDefaultPlaylist(Number(currentPlaylistId))}
                 className="rounded-full border-primary/[0.12] bg-primary/[0.04] text-xs">设为默认歌单</Button>
             )}
@@ -208,31 +208,36 @@ export default function MusicPage() {
               </div>
             </div>
           )}
-
-          {playlist.length > 0 && (
-            <Card className="border-primary/[0.1] bg-card/60 backdrop-blur-xl">
-              <CardHeader><CardTitle className="text-lg">{playlistName || "歌单"}</CardTitle></CardHeader>
-              <CardContent className="space-y-1">
-                {playlist.map((track, i) => (
-                  <button key={track.id} onClick={() => play(track)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors cursor-pointer ${
-                      currentTrack?.id === track.id ? "bg-primary/[0.08] text-primary font-medium" : "text-muted-foreground hover:bg-primary/[0.04] hover:text-foreground"
-                    }`}>
-                    <span className="w-6 text-center text-xs tabular-nums shrink-0">{currentTrack?.id === track.id && isPlaying ? "▶" : i + 1}</span>
-                    <img src={track.cover} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
-                    <span className="truncate flex-1 text-sm">{track.name}</span>
-                    <span className="text-xs text-muted-foreground truncate">{track.artist}</span>
-                  </button>
-                ))}
-              </CardContent>
-            </Card>
-          )}
         </div>
       )}
 
-      {!currentTrack && !neteaseLoggedIn && (
+      {/* 歌单列表（管理员可点击，普通用户只读） */}
+      {playlist.length > 0 && (
+        <Card className="border-primary/[0.1] bg-card/60 backdrop-blur-xl">
+          <CardHeader><CardTitle className="text-lg">{playlistName || "当前歌单"}</CardTitle></CardHeader>
+          <CardContent className="space-y-1">
+            {playlist.map((track, i) => (
+              <button key={track.id}
+                onClick={() => isAdmin ? play(track) : undefined}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors ${
+                  isAdmin ? "cursor-pointer hover:bg-primary/[0.04] hover:text-foreground" : "cursor-default"
+                } ${
+                  currentTrack?.id === track.id ? "bg-primary/[0.08] text-primary font-medium" : "text-muted-foreground"
+                }`}>
+                <span className="w-6 text-center text-xs tabular-nums shrink-0">{currentTrack?.id === track.id && isPlaying ? "▶" : i + 1}</span>
+                <img src={track.cover} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
+                <span className="truncate flex-1 text-sm">{track.name}</span>
+                <span className="text-xs text-muted-foreground truncate">{track.artist}</span>
+              </button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      {!currentTrack && (
         <div className="text-center py-16 text-muted-foreground">
-          <Music className="h-16 w-16 mx-auto mb-4 opacity-20" /><p>登录后即可播放音乐</p>
+          <Music className="h-16 w-16 mx-auto mb-4 opacity-20" />
+          <p>{isAdmin ? "登录网易云后即可播放音乐" : "当前没有正在播放的音乐"}</p>
         </div>
       )}
     </div>
