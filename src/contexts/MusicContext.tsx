@@ -168,9 +168,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     setUserPlaylists(pls);
   }, [cookie]);
 
-  /** 加载私人雷达 */
+  /** 加载私人 FM */
   const loadPersonalFm = useCallback(async () => {
-    const res = await fetch(`${NE_API}/personalized/privatecontent?cookie=${cookie}`);
+    const res = await fetch(`${NE_API}/personal_fm?cookie=${cookie}`);
     const data = await res.json() as any;
     if (data.code !== 200) return;
     const tracks: Track[] = (data.data || []).map((s: any) => ({

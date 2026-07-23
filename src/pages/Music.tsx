@@ -171,7 +171,7 @@ export default function MusicPage() {
           {/* 私人 FM + 设默认 */}
           <div className="flex gap-3">
             <Button variant="outline" onClick={loadPersonalFm} className="flex-1 rounded-full border-primary/[0.12] bg-primary/[0.04]">
-              <Radio className="h-4 w-4" />私人雷达
+              <Radio className="h-4 w-4" />私人 FM
             </Button>
             {isAdmin && playlist.length > 0 && (
               <Button variant="outline" onClick={() => setDefaultPlaylist(Number(playlistId))}
