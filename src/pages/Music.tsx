@@ -84,7 +84,7 @@ export default function MusicPage() {
   const play = async (idx: number) => {
     const t = playlist[idx];
     if (!t) return;
-    const res = await fetch(`${API}/song/url/v1?id=${t.id}&level=standard`);
+    const res = await fetch(`${API}/song/url/v1?id=${t.id}&level=standard&randomCNIP=true`);
     const d = await res.json();
     const url = d.data?.[0]?.url;
     if (!url) return;
