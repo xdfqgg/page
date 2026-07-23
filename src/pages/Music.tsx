@@ -55,7 +55,11 @@ export default function MusicPage() {
     const poll = async () => {
       const code = await checkQr(key);
       switch (code) {
-        case 800: setQrStatus("二维码已过期，重新生成"); stopPoll(); break;
+        case 800:
+          stopPoll();
+          setQrStatus("二维码已过期，自动刷新中...");
+          startQrLogin(); // 过期自动刷新
+          break;
         case 801: break;
         case 802: setQrStatus("已扫描，请在手机上确认"); break;
         case 803: setQrStatus("登录成功！"); setQrImage(""); stopPoll(); break;
