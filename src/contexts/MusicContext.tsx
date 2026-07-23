@@ -54,10 +54,12 @@ const MusicContext = createContext<MusicState | null>(null);
 
 /** 全局音频元素（持久存在，不随路由销毁） */
 let globalAudio: HTMLAudioElement | null = null;
+let onEnded: (() => void) | null = null;
 function getAudio(): HTMLAudioElement {
   if (!globalAudio) {
     globalAudio = new Audio();
     globalAudio.volume = 0.5;
+    globalAudio.addEventListener("ended", () => onEnded?.());
   }
   return globalAudio;
 }
@@ -351,6 +353,15 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
     const prevIdx = (idx - 1 + playlist.length) % playlist.length;
     play(playlist[prevIdx]);
+    setTimeout(() => syncRef.current(), 100);
+  }, [playlist, currentTrack, play]);
+
+  // 自动续播：歌曲结束后自动下一首
+  onEnded = useCallback(() => {
+    if (playlist.length === 0) return;
+    const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
+    const nextIdx = (idx + 1) % playlist.length;
+    play(playlist[nextIdx]);
     setTimeout(() => syncRef.current(), 100);
   }, [playlist, currentTrack, play]);
 
