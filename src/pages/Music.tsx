@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,10 +24,11 @@ export default function MusicPage() {
   const [loginLoading, setLoginLoading] = useState(false);
   const playlistId = "3778678";
   const [loginMode, setLoginMode] = useState<"qr" | "password">("qr");
+
+  // QR 状态
   const [qrImage, setQrImage] = useState("");
   const [qrStatus, setQrStatus] = useState("");
-  const qrTimerRef = useRef<number | null>(null);
-
+  const [qrKey, setQrKey] = useState(0); // 递增触发重新生成
   useEffect(() => {
     if (neteaseLoggedIn) {
       loadUserPlaylists();
@@ -35,61 +36,58 @@ export default function MusicPage() {
     }
   }, [neteaseLoggedIn]);
 
+  // 二维码：用 qrKey 控制生命周期
   useEffect(() => {
-    if (isAdmin && !neteaseLoggedIn) {
-      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
-      getQrKey().then((key) => {
-        if (key) {
-          getQrImage(key).then((img) => {
-            if (img) { setQrImage(img); setQrStatus("请用网易云 App 扫码"); startPolling(key); }
-          });
-        }
-      }).catch(() => setQrStatus("加载失败，请刷新"));
-    }
-  }, [isAdmin, neteaseLoggedIn]);
+    if (!isAdmin || neteaseLoggedIn) return;
 
-  const startPolling = (key: string) => {
-    const stopPoll = () => {
-      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
-    };
-    const poll = async () => {
+    let stopped = false;
+    let timer: number | null = null;
+
+    const stopTimer = () => { if (timer) { clearInterval(timer); timer = null; } };
+
+    const doPoll = async (key: string) => {
+      if (stopped) return;
       const code = await checkQr(key);
+      if (stopped) return;
       switch (code) {
         case 800:
-          stopPoll();
-          setQrStatus("二维码已过期，自动刷新中...");
-          startQrLogin(); // 过期自动刷新
+          stopTimer();
+          setQrKey(k => k + 1); // 触发重新生成
           break;
         case 801: break;
         case 802:
           setQrStatus("已扫描，请在手机上确认");
-          // 已扫描，加速轮询
-          stopPoll();
-          poll(); // 立即检查一次
-          qrTimerRef.current = window.setInterval(poll, 1000);
+          stopTimer();
+          timer = window.setInterval(() => doPoll(key), 1000);
           break;
-        case 803: setQrStatus("登录成功！"); setQrImage(""); stopPoll(); break;
+        case 803:
+          setQrStatus("登录成功！"); setQrImage(""); stopTimer();
+          break;
       }
     };
-    stopPoll();
-    poll();
-    qrTimerRef.current = window.setInterval(poll, 1000);
-  };
 
-  const startQrLogin = async () => {
-    if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
-    setQrImage("");
-    setQrStatus("生成中...");
-    try {
-      const key = await getQrKey();
-      if (!key) { setQrStatus("获取二维码失败，请重试"); return; }
-      const img = await getQrImage(key);
-      if (!img) { setQrStatus("生成二维码失败，请重试"); return; }
-      setQrImage(img);
-      setQrStatus("请用网易云 App 扫码");
-      startPolling(key);
-    } catch { setQrStatus("网络错误，请重试"); }
-  };
+    const create = async () => {
+      stopTimer();
+      setQrImage("");
+      setQrStatus("生成中...");
+      try {
+        const key = await getQrKey();
+        if (!key || stopped) { if (!stopped) setQrStatus("获取 key 失败，重试中..."); return; }
+        const img = await getQrImage(key);
+        if (!img || stopped) { if (!stopped) setQrStatus("获取二维码失败，重试中..."); return; }
+        if (stopped) return;
+        setQrImage(img);
+        setQrStatus("请用网易云 App 扫码");
+        doPoll(key);
+        timer = window.setInterval(() => doPoll(key), 1000);
+      } catch {
+        if (!stopped) setQrStatus("网络错误");
+      }
+    };
+
+    create();
+    return () => { stopped = true; stopTimer(); };
+  }, [isAdmin, neteaseLoggedIn, qrKey]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,9 +109,7 @@ export default function MusicPage() {
           </div>
           {neteaseLoggedIn && (
             <Button variant="ghost" size="sm" onClick={logoutNetease}
-              className="text-muted-foreground hover:text-destructive">
-              退出网易云
-            </Button>
+              className="text-muted-foreground hover:text-destructive">退出网易云</Button>
           )}
         </div>
       </header>
@@ -137,12 +133,12 @@ export default function MusicPage() {
                   <>
                     <img src={qrImage} alt="二维码" className="mx-auto rounded-lg w-48 h-48 bg-white p-2" />
                     <p className="text-sm text-muted-foreground">{qrStatus}</p>
-                    <Button onClick={startQrLogin} variant="ghost" size="sm">重新生成</Button>
+                    <Button onClick={() => setQrKey(k => k + 1)} variant="ghost" size="sm">重新生成</Button>
                   </>
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-6">
                     <div className="w-10 h-10 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
-                    <p className="text-sm text-muted-foreground">获取二维码中...</p>
+                    <p className="text-sm text-muted-foreground">{qrStatus || "获取二维码中..."}</p>
                   </div>
                 )}
               </div>
@@ -185,23 +181,19 @@ export default function MusicPage() {
         </Card>
       )}
 
-      {/* 登录后：私人 FM + 用户歌单 + 歌单歌曲 */}
+      {/* 登录后 */}
       {neteaseLoggedIn && (
         <div className="space-y-8">
-          {/* 私人 FM + 设默认 */}
           <div className="flex gap-3">
             <Button variant="outline" onClick={loadPersonalFm} className="flex-1 rounded-full border-primary/[0.12] bg-primary/[0.04]">
               <Radio className="h-4 w-4" />私人 FM
             </Button>
             {isAdmin && playlist.length > 0 && (
               <Button variant="outline" onClick={() => setDefaultPlaylist(Number(playlistId))}
-                className="rounded-full border-primary/[0.12] bg-primary/[0.04] text-xs">
-                设为默认歌单
-              </Button>
+                className="rounded-full border-primary/[0.12] bg-primary/[0.04] text-xs">设为默认歌单</Button>
             )}
           </div>
 
-          {/* 用户歌单 */}
           {userPlaylists.length > 0 && (
             <div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
@@ -212,30 +204,23 @@ export default function MusicPage() {
                   <button key={pl.id} onClick={() => loadPlaylist(pl.id)}
                     className="flex flex-col items-center gap-2 p-3 rounded-xl border border-primary/[0.08] bg-primary/[0.02] hover:bg-primary/[0.05] transition-colors cursor-pointer text-center">
                     <img src={pl.cover} alt="" className="w-16 h-16 rounded-lg object-cover" />
-                    <div>
-                      <p className="text-xs font-medium line-clamp-2">{pl.name}</p>
-                      <p className="text-xs text-muted-foreground">{pl.count}首</p>
-                    </div>
+                    <div><p className="text-xs font-medium line-clamp-2">{pl.name}</p><p className="text-xs text-muted-foreground">{pl.count}首</p></div>
                   </button>
                 ))}
               </div>
             </div>
           )}
 
-          {/* 当前歌单歌曲列表 */}
           {playlist.length > 0 && (
             <Card className="border-primary/[0.1] bg-card/60 backdrop-blur-xl">
-              <CardHeader>
-                <CardTitle className="text-lg">{playlistName || "歌单"}</CardTitle>
-              </CardHeader>
+              <CardHeader><CardTitle className="text-lg">{playlistName || "歌单"}</CardTitle></CardHeader>
               <CardContent className="space-y-1">
                 {playlist.map((track, i) => (
                   <button key={track.id} onClick={() => play(track)}
                     className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors cursor-pointer ${
                       currentTrack?.id === track.id ? "bg-primary/[0.08] text-primary font-medium" : "text-muted-foreground hover:bg-primary/[0.04] hover:text-foreground"
                     }`}>
-                    <span className="w-6 text-center text-xs tabular-nums shrink-0">
-                      {currentTrack?.id === track.id && isPlaying ? "▶" : i + 1}</span>
+                    <span className="w-6 text-center text-xs tabular-nums shrink-0">{currentTrack?.id === track.id && isPlaying ? "▶" : i + 1}</span>
                     <img src={track.cover} alt="" className="h-8 w-8 rounded object-cover shrink-0" />
                     <span className="truncate flex-1 text-sm">{track.name}</span>
                     <span className="text-xs text-muted-foreground truncate">{track.artist}</span>
@@ -249,8 +234,7 @@ export default function MusicPage() {
 
       {!currentTrack && !neteaseLoggedIn && (
         <div className="text-center py-16 text-muted-foreground">
-          <Music className="h-16 w-16 mx-auto mb-4 opacity-20" />
-          <p>登录后即可播放音乐</p>
+          <Music className="h-16 w-16 mx-auto mb-4 opacity-20" /><p>登录后即可播放音乐</p>
         </div>
       )}
     </div>
