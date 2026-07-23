@@ -64,6 +64,9 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [cookie, setCookie] = useState<string>(
     () => localStorage.getItem("ne_cookie") || ""
   );
+  const [neteaseUid, setNeteaseUid] = useState<string>(
+    () => localStorage.getItem("ne_uid") || ""
+  );
   const [neteaseLoggedIn, setNeteaseLoggedIn] = useState(!!cookie);
   const [neteaseProfile, setNeteaseProfile] = useState<{
     nickname: string; avatar: string;
@@ -110,6 +113,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         const p = statusData.data.profile;
         const profile = { nickname: p.nickname, avatar: p.avatarUrl };
         localStorage.setItem("ne_profile", JSON.stringify(profile));
+        localStorage.setItem("ne_uid", String(p.userId));
+        setNeteaseUid(String(p.userId));
         setNeteaseProfile(profile);
       }
     }
@@ -128,9 +133,12 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       avatar: data.profile?.avatarUrl || "",
     };
 
+    const uid = String(data.profile?.userId || data.account?.id || "");
     localStorage.setItem("ne_cookie", ck);
     localStorage.setItem("ne_profile", JSON.stringify(profile));
+    localStorage.setItem("ne_uid", uid);
     setCookie(ck);
+    setNeteaseUid(uid);
     setNeteaseLoggedIn(true);
     setNeteaseProfile(profile);
     return null; // 无错误
@@ -156,7 +164,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 加载用户歌单列表 */
   const loadUserPlaylists = useCallback(async () => {
-    const res = await fetch(`${NE_API}/user/playlist?cookie=${cookie}`);
+    const uid = neteaseUid || localStorage.getItem("ne_uid") || "";
+    const res = await fetch(`${NE_API}/user/playlist?uid=${uid}&cookie=${cookie}`);
     const data = await res.json() as any;
     if (data.code !== 200) return;
     const pls = (data.playlist || []).map((p: any) => ({
@@ -166,7 +175,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       count: p.trackCount || 0,
     }));
     setUserPlaylists(pls);
-  }, [cookie]);
+  }, [cookie, neteaseUid]);
 
   /** 加载私人 FM */
   const loadPersonalFm = useCallback(async () => {
