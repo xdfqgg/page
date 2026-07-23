@@ -16,7 +16,11 @@
       "WebFetch(domain:api-enhanced-main-orpin.vercel.app)",
       "WebFetch(domain:api.bgm.tv)",
       "Bash(npx skills *)",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "WebFetch(domain:www.shadcnblocks.com)",
+      "WebFetch(domain:tailwindflex.com)",
+      "WebFetch(domain:designyff.com)",
+      "WebFetch(domain:codepen.io)"
     ]
   }
 }
