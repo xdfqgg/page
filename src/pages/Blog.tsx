@@ -5,7 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { PenLine } from "lucide-react";
+import { PenLine, Trash2 } from "lucide-react";
 
 interface PostMeta {
   slug: string;
@@ -78,11 +78,28 @@ export default function Blog() {
                 <Link to={`/blog/${post.slug}`}>阅读全文 →</Link>
               </Button>
               {isAdmin && (
-                <Button variant="ghost" size="sm" asChild>
-                  <Link to={`/blog/write?edit=${post.slug}`}>
-                    <PenLine className="h-3.5 w-3.5" />
-                  </Link>
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button variant="ghost" size="sm" asChild>
+                    <Link to={`/blog/write?edit=${post.slug}`}>
+                      <PenLine className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={async () => {
+                      if (!confirm(`确定删除「${post.title}」？`)) return;
+                      const r = await api.deletePost(post.slug);
+                      if (r.success) {
+                        setPosts((prev) => prev.filter((p) => p.slug !== post.slug));
+                      } else {
+                        alert(r.error || "删除失败");
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                  </Button>
+                </div>
               )}
             </CardFooter>
           </Card>

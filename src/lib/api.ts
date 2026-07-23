@@ -56,4 +56,10 @@ export const api = {
   }) => post("/api/posts/update", data) as Promise<{
     error?: string; success?: boolean; slug?: string;
   }>,
+
+  /** 删除文章 */
+  deletePost: (slug: string) =>
+    post("/api/posts/delete", { slug }) as Promise<{
+      error?: string; success?: boolean;
+    }>,
 };
