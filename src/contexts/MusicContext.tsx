@@ -190,7 +190,24 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       cover: s.al?.picUrl || "",
     }));
     setFmTracks(tracks);
-    if (tracks.length > 0) setPlaylist(tracks);
+    if (tracks.length > 0) {
+      setPlaylist(tracks);
+      const t = tracks[0];
+      // 直接拿播放地址并播放
+      fetch(`${NE_API}/song/url/v1?id=${t.id}&level=standard&cookie=${cookie}`)
+        .then(r => r.json())
+        .then(d => {
+          const url = (d as any).data?.[0]?.url;
+          if (url) {
+            t.url = url;
+            const a = getAudio();
+            a.src = url;
+            a.play();
+            setCurrentTrack(t);
+            setIsPlaying(true);
+          }
+        });
+    }
   }, [cookie]);
 
   /** 设默认歌单（管理员） */
