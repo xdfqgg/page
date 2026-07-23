@@ -43,10 +43,17 @@ export const api = {
     return res.text();
   },
 
-  /** 创建文章（管理员） */
+  /** 创建文章 */
   createPost: (data: {
     title: string; tags: string[]; excerpt: string; content: string;
   }) => post("/api/posts/create", data) as Promise<{
+    error?: string; success?: boolean; slug?: string;
+  }>,
+
+  /** 编辑文章 */
+  updatePost: (data: {
+    slug: string; title: string; tags: string[]; excerpt: string; content: string;
+  }) => post("/api/posts/update", data) as Promise<{
     error?: string; success?: boolean; slug?: string;
   }>,
 };

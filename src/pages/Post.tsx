@@ -4,8 +4,9 @@ import { marked } from "marked";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, PenLine } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface PostMeta {
   slug: string;
@@ -16,6 +17,8 @@ interface PostMeta {
 
 export default function PostPage() {
   const { slug } = useParams<{ slug: string }>();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [content, setContent] = useState<string | null>(null);
   const [meta, setMeta] = useState<PostMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,6 +66,14 @@ export default function PostPage() {
               <Badge key={tag} variant="secondary" className="bg-primary/[0.06] text-muted-foreground border-0">{tag}</Badge>
             ))}
           </div>
+        )}
+        {isAdmin && (
+          <Link
+            to={`/blog/write?edit=${slug}`}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors mt-2"
+          >
+            <PenLine className="h-3 w-3" />编辑
+          </Link>
         )}
       </header>
 

@@ -16,7 +16,8 @@ interface PostMeta {
 }
 
 export default function Blog() {
-  const { isLoggedIn } = useAuth();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [posts, setPosts] = useState<PostMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -34,7 +35,7 @@ export default function Blog() {
           <h1 className="text-3xl font-bold">博客</h1>
           <p className="mt-2 text-muted-foreground">技术文章、学习笔记和日常思考</p>
         </div>
-        {isLoggedIn && (
+        {isAdmin && (
           <Button asChild size="sm">
             <Link to="/blog/write">
               <PenLine className="h-4 w-4" />写文章
@@ -72,10 +73,17 @@ export default function Blog() {
                 </div>
               </CardContent>
             )}
-            <CardFooter>
+            <CardFooter className="flex items-center justify-between">
               <Button variant="link" size="sm" asChild className="p-0">
                 <Link to={`/blog/${post.slug}`}>阅读全文 →</Link>
               </Button>
+              {isAdmin && (
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to={`/blog/write?edit=${post.slug}`}>
+                    <PenLine className="h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              )}
             </CardFooter>
           </Card>
         ))}
