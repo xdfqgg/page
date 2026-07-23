@@ -13,24 +13,22 @@ const ORBITS = [
   { rx: 88, ry: 22, speed: 0.7, color: "rgba(255,255,255,0.55)", count: 3 },
 ];
 
-// 每个碎片的 clip-path 和悬停偏移方向
+// 碎片：clip-path 全面覆盖 120x120 圆形区域
 const FRAGMENTS = [
-  // 左上大块
-  { clip: "polygon(0 0, 55% 0, 45% 35%, 30% 55%, 0 45%)", hover: { x: -6, y: -5 } },
-  // 右上大块
-  { clip: "polygon(55% 0, 100% 0, 100% 50%, 70% 45%, 45% 35%)", hover: { x: 6, y: -4 } },
-  // 右中大块
-  { clip: "polygon(100% 50%, 100% 100%, 65% 100%, 55% 70%, 70% 45%)", hover: { x: 7, y: 3 } },
-  // 左下大块
-  { clip: "polygon(0 45%, 30% 55%, 20% 80%, 0 100%)", hover: { x: -5, y: 6 } },
-  // 底部中间
-  { clip: "polygon(20% 80%, 30% 55%, 45% 35%, 55% 70%, 65% 100%, 20% 100%)", hover: { x: 0, y: 8 } },
-  // 右侧小碎片
-  { clip: "polygon(70% 45%, 90% 30%, 100% 45%)", hover: { x: 4, y: -6 } },
-  // 中心横条
-  { clip: "polygon(45% 35%, 55% 30%, 60% 40%, 50% 45%)", hover: { x: -2, y: -2 } },
-  // 左中
-  { clip: "polygon(0 45%, 15% 65%, 30% 55%)", hover: { x: -7, y: -2 } },
+  { clip: "polygon(0 0, 50% 0, 35% 25%, 20% 35%, 0 25%)", hover: { x: -5, y: -4 } },
+  { clip: "polygon(50% 0, 100% 0, 100% 20%, 70% 30%, 35% 25%)", hover: { x: 6, y: -3 } },
+  { clip: "polygon(100% 20%, 100% 55%, 80% 50%, 70% 30%)", hover: { x: 8, y: 0 } },
+  { clip: "polygon(100% 55%, 100% 100%, 75% 95%, 65% 70%, 80% 50%)", hover: { x: 6, y: 5 } },
+  { clip: "polygon(75% 95%, 40% 100%, 30% 80%, 45% 65%, 65% 70%)", hover: { x: 0, y: 8 } },
+  { clip: "polygon(40% 100%, 0 100%, 0 75%, 20% 55%, 30% 80%)", hover: { x: -6, y: 5 } },
+  { clip: "polygon(0 75%, 0 25%, 20% 35%, 20% 55%)", hover: { x: -8, y: 0 } },
+  { clip: "polygon(20% 35%, 35% 25%, 45% 40%, 35% 55%, 20% 55%)", hover: { x: -2, y: -1 } },
+  { clip: "polygon(45% 40%, 35% 25%, 70% 30%, 65% 50%, 55% 55%)", hover: { x: 3, y: -2 } },
+  { clip: "polygon(65% 50%, 70% 30%, 80% 50%, 65% 70%)", hover: { x: 5, y: 2 } },
+  { clip: "polygon(55% 55%, 45% 65%, 45% 40%)", hover: { x: 0, y: 3 } },
+  { clip: "polygon(35% 55%, 20% 55%, 30% 80%, 45% 65%)", hover: { x: -3, y: 4 } },
+  { clip: "polygon(0 25%, 20% 35%, 0 40%)", hover: { x: -7, y: -2 } },
+  { clip: "polygon(45% 40%, 55% 55%, 45% 65%, 35% 55%)", hover: { x: 0, y: 1 } },
 ];
 
 export default function AvatarWithJelly() {
@@ -107,7 +105,7 @@ export default function AvatarWithJelly() {
 
       {/* 碎片头像容器 */}
       <div
-        className="relative cursor-pointer select-none"
+        className="relative cursor-pointer select-none overflow-hidden rounded-full"
         style={{ width: 120, height: 120, zIndex: 1 }}
         onMouseEnter={() => animateFrags(true)}
         onMouseLeave={() => animateFrags(false)}
