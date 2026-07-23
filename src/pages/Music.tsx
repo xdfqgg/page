@@ -40,6 +40,13 @@ export default function MusicPage() {
     }
   }, [neteaseLoggedIn]);
 
+  // 二维码模式自动生成
+  useEffect(() => {
+    if (loginMode === "qr" && !neteaseLoggedIn && !qrImage) {
+      startQrLogin();
+    }
+  }, [loginMode, neteaseLoggedIn]);
+
   /** 生成二维码 */
   const startQrLogin = async () => {
     setQrStatus("生成中...");
@@ -121,15 +128,16 @@ export default function MusicPage() {
             {loginMode === "qr" ? (
               /* ─── 二维码登录 ─── */
               <div className="text-center space-y-4">
-                {!qrImage ? (
-                  <Button onClick={startQrLogin} variant="outline">
-                    <QrCode className="h-4 w-4" />生成二维码
-                  </Button>
-                ) : (
+                {qrImage ? (
                   <>
-                    <img src={qrImage} alt="二维码" className="mx-auto rounded-lg w-48 h-48" />
+                    <img src={qrImage} alt="二维码" className="mx-auto rounded-lg w-48 h-48 bg-white p-2" />
                     <p className="text-sm text-muted-foreground">{qrStatus}</p>
+                    <Button onClick={startQrLogin} variant="ghost" size="sm">
+                      重新生成
+                    </Button>
                   </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">加载二维码中...</p>
                 )}
               </div>
             ) : (
