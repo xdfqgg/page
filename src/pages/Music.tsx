@@ -28,6 +28,8 @@ export default function MusicPage() {
   const [playlistName, setPlaylistName] = useState("");
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   // 播放模式: 0=顺序 1=单曲循环 2=随机
@@ -140,14 +142,31 @@ export default function MusicPage() {
     play((currentIdx - 1 + playlist.length) % playlist.length);
   };
 
-  // 歌曲结束自动下一首
+  // 歌曲结束自动下一首 + 进度更新
   useEffect(() => {
     const a = getAudio();
     a.onended = () => {
       if (playMode === 1) { a.currentTime = 0; a.play(); }
       else nextRef.current();
     };
+    a.ontimeupdate = () => { setCurrentTime(a.currentTime); };
+    a.ondurationchange = () => { setDuration(a.duration); };
   }, [playMode]);
+
+  const seek = (e: React.MouseEvent<HTMLDivElement>) => {
+    const bar = e.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    const a = getAudio();
+    a.currentTime = pct * (duration || a.duration || 0);
+  };
+
+  const fmt = (s: number) => {
+    if (!s || !isFinite(s)) return "0:00";
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${sec.toString().padStart(2, "0")}`;
+  };
 
   // 管理员加载歌单
   const loadNeteasePlaylist = async (id: number) => {
@@ -285,7 +304,20 @@ export default function MusicPage() {
                 <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">正在播放</p>
                 <p className="text-2xl font-bold truncate">{currentTrack.name}</p>
                 <p className="text-muted-foreground truncate mt-1">{currentTrack.artist}</p>
-                <div className="flex items-center justify-center sm:justify-start gap-3 mt-6">
+
+                {/* 进度条 */}
+                <div className="mt-4 w-full max-w-xs mx-auto sm:mx-0">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                    <span className="w-10 text-right tabular-nums">{fmt(currentTime)}</span>
+                    <div className="flex-1 h-2 bg-primary/[0.08] rounded-full cursor-pointer relative" onClick={seek}>
+                      <div className="h-full bg-primary/40 rounded-full transition-all"
+                        style={{ width: `${duration > 0 ? (currentTime / duration) * 100 : 0}%` }} />
+                    </div>
+                    <span className="w-10 tabular-nums">{fmt(duration)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center sm:justify-start gap-3 mt-2">
                   <button onClick={prev} className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-primary/[0.06] transition-colors cursor-pointer"><SkipBack className="h-5 w-5" /></button>
                   <button onClick={togglePlay} className="p-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/80 transition-colors cursor-pointer shadow-lg">
                     {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}</button>
