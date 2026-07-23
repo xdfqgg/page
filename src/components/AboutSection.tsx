@@ -38,12 +38,12 @@ const SOCIAL_LINKS: SocialLink[] = [
 
 export default function AboutSection() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-16 pb-40">
+    <section className="mx-auto max-w-5xl px-6 py-16 pb-24">
       <Separator className="mb-16 bg-primary/[0.1]" />
 
       {/* ─── 个人简介卡片 ─── */}
       <Card className="mx-auto max-w-2xl border-primary/[0.1] bg-card">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center pb-6">
           <CardTitle className="text-foreground text-xl">关于我</CardTitle>
           <CardDescription className="text-muted-foreground leading-relaxed space-y-3">
             <p>正在精进计算机技术。</p>
