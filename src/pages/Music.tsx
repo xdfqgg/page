@@ -44,8 +44,9 @@ export default function MusicPage() {
     fetch(`${BACKEND}/api/music/config`)
       .then(r => r.json())
       .then(c => {
-        const id = c.playlistId || "3778678";
-        return fetch(`${API}/playlist/track/all?id=${id}`);
+        const id = c.playlistId;
+        if (id) return fetch(`${API}/playlist/track/all?id=${id}`);
+        return fetch(`${API}/playlist/track/all?id=3778678`);
       })
       .then(r => r.json())
       .then(d => {
@@ -61,14 +62,21 @@ export default function MusicPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  // 管理员加载网易云歌单
+  // 管理员加载网易云歌单 + 自动设为"我喜欢的音乐"
   useEffect(() => {
     if (!neteaseLoggedIn) return;
     const uid = localStorage.getItem("ne_uid") || "";
     fetch(`${API}/user/playlist?uid=${uid}&cookie=${cookie}`)
       .then(r => r.json())
       .then(d => {
-        if (d.playlist) setUserPlaylists(d.playlist);
+        if (d.playlist) {
+          setUserPlaylists(d.playlist);
+          // 自动找到"我喜欢的音乐"
+          const liked = d.playlist.find((p: any) =>
+            p.name === "我喜欢的音乐" || p.specialType === 5
+          );
+          if (liked) loadNeteasePlaylist(liked.id);
+        }
       });
   }, [neteaseLoggedIn]);
 
