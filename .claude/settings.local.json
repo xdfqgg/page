@@ -14,7 +14,8 @@
       "Bash(powershell.exe *)",
       "WebFetch(domain:api-enhanced-main-r18ayn7j8-xdfq.vercel.app)",
       "WebFetch(domain:api-enhanced-main-orpin.vercel.app)",
-      "WebFetch(domain:api.bgm.tv)"
+      "WebFetch(domain:api.bgm.tv)",
+      "Bash(npx skills *)"
     ]
   }
 }

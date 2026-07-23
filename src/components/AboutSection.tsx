@@ -42,7 +42,7 @@ export default function AboutSection() {
       <Separator className="mb-16 bg-primary/[0.1]" />
 
       {/* ─── 个人简介卡片 ─── */}
-      <Card className="mx-auto max-w-2xl border-primary/[0.1] bg-card">
+      <Card className="mx-auto max-w-xl border-primary/[0.06] bg-card/30 backdrop-blur-md">
         <CardHeader className="text-center pb-6">
           <CardTitle className="text-foreground text-xl">关于我</CardTitle>
           <CardDescription className="text-muted-foreground leading-relaxed space-y-3">

@@ -164,7 +164,7 @@ export default function Hero() {
         </h1>
 
         {/* ─── 简介 ─── */}
-        <p className="mx-auto mt-5 max-w-lg text-lg text-muted-foreground">
+        <p className="mx-auto mt-5 max-w-lg text-xl text-muted-foreground">
           这里会热闹起来的!!!!
         </p>
 

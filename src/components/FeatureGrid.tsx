@@ -76,7 +76,7 @@ export default function FeatureGrid() {
   return (
     <section id="feature-grid" className="mx-auto max-w-5xl px-6 py-16">
       {/* ─── 区域标题 ─── */}
-      <h2 className="mb-10 text-center text-sm font-medium uppercase tracking-widest text-muted-foreground">
+      <h2 className="mb-10 text-center text-base font-semibold tracking-wide text-muted-foreground">
         尝试点击一个模块吧!
       </h2>
 
