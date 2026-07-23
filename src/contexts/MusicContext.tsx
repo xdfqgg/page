@@ -240,23 +240,43 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  /** 初始化：仅当管理员设定了默认歌单才加载 */
+  /** 初始化：管理员设定了默认歌单才加载并自动播放 */
   const initMusic = useCallback(async () => {
     try {
       const res = await fetch(`${BACKEND}/api/music/config`);
       const config = await res.json() as { playlistId?: string; updated?: string };
-      // 只有管理员主动设置过的才播放
       if (config.updated && config.playlistId) {
-        loadPlaylist(Number(config.playlistId));
-        // 等歌单加载完后自动播第一首
-        setTimeout(() => {
-          if (globalAudio && currentTrack) {
-            play(currentTrack);
+        // 加载歌单
+        const plRes = await fetch(`${NE_API}/playlist/track/all?id=${config.playlistId}&cookie=${cookie}`);
+        const plData = await plRes.json() as any;
+        if (plData.code !== 200) return;
+
+        const tracks: Track[] = (plData.songs || []).map((s: any) => ({
+          id: s.id, name: s.name,
+          artist: (s.ar || []).map((a: any) => a.name).join(" / "),
+          album: s.al?.name || "", cover: s.al?.picUrl || "",
+        }));
+        setPlaylist(tracks);
+        setPlaylistName(plData.playlist?.name || "");
+
+        // 获取第一首 URL 并播放
+        if (tracks.length > 0) {
+          const t = tracks[0];
+          const urlRes = await fetch(`${NE_API}/song/url/v1?id=${t.id}&level=standard&cookie=${cookie}`);
+          const urlData = await urlRes.json() as any;
+          const url = urlData.data?.[0]?.url;
+          if (url) {
+            t.url = url;
+            const a = getAudio();
+            a.src = url;
+            a.play().catch(() => {}); // 浏览器可能禁止自动播放，第一次点击后触发
+            setCurrentTrack(t);
+            setIsPlaying(true);
           }
-        }, 2000);
+        }
       }
-    } catch { /* 无配置，不播放 */ }
-  }, [loadPlaylist]);
+    } catch { /* 无配置 */ }
+  }, []);
 
   /** 获取歌曲播放地址并播放 */
   const play = useCallback(async (track?: Track) => {
