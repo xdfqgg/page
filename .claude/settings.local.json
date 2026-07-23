@@ -9,7 +9,8 @@
       "Bash(npm install *)",
       "Bash(curl *)",
       "WebFetch(domain:cf-backend-lake.vercel.app)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(npx tsc *)"
     ]
   }
 }
