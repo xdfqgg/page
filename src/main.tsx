@@ -6,6 +6,7 @@ import "./index.css";
 import Layout from "./layouts/Layout";
 import Home from "./pages/Home";
 import Blog from "./pages/Blog";
+import BlogWrite from "./pages/BlogWrite";
 import PostPage from "./pages/Post";
 import Forum from "./pages/Forum";
 import Anime from "./pages/Anime";
@@ -38,6 +39,7 @@ createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="blog" element={<Blog />} />
+          <Route path="blog/write" element={<BlogWrite />} />
           <Route path="blog/:slug" element={<PostPage />} />
           <Route path="forum" element={<Forum />} />
           <Route path="anime" element={<Anime />} />

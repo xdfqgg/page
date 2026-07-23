@@ -42,4 +42,11 @@ export const api = {
     if (!res.ok) return null;
     return res.text();
   },
+
+  /** 创建文章（管理员） */
+  createPost: (data: {
+    title: string; tags: string[]; excerpt: string; content: string;
+  }) => post("/api/posts/create", data) as Promise<{
+    error?: string; success?: boolean; slug?: string;
+  }>,
 };

@@ -4,6 +4,8 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { PenLine } from "lucide-react";
 
 interface PostMeta {
   slug: string;
@@ -14,6 +16,7 @@ interface PostMeta {
 }
 
 export default function Blog() {
+  const { isLoggedIn } = useAuth();
   const [posts, setPosts] = useState<PostMeta[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -26,9 +29,18 @@ export default function Blog() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-16">
-      <header className="mb-10">
-        <h1 className="text-3xl font-bold">博客</h1>
-        <p className="mt-2 text-muted-foreground">技术文章、学习笔记和日常思考</p>
+      <header className="mb-10 flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">博客</h1>
+          <p className="mt-2 text-muted-foreground">技术文章、学习笔记和日常思考</p>
+        </div>
+        {isLoggedIn && (
+          <Button asChild size="sm">
+            <Link to="/blog/write">
+              <PenLine className="h-4 w-4" />写文章
+            </Link>
+          </Button>
+        )}
       </header>
 
       {loading && <p className="text-center text-muted-foreground py-20">加载中...</p>}
