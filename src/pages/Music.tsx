@@ -127,11 +127,12 @@ export default function MusicPage() {
 
   const nextRef = useRef<() => void>(() => {});
   const next = () => {
-    if (!playlist.length) return;
+    const pl = cachedPlaylist || playlist;
+    if (!pl.length) return;
     let idx: number;
-    if (playMode === 2) idx = Math.floor(Math.random() * playlist.length);
-    else if (playMode === 1) idx = currentIdx; // 单曲循环
-    else idx = (currentIdx + 1) % playlist.length;
+    if (playMode === 2) idx = Math.floor(Math.random() * pl.length);
+    else if (playMode === 1) idx = currentIdx;
+    else idx = (currentIdx + 1) % pl.length;
     play(idx);
   };
   nextRef.current = next;
