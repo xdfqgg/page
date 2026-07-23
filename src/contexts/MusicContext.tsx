@@ -259,17 +259,23 @@ export function MusicProvider({ children }: { children: ReactNode }) {
         setPlaylistName(data.playlistName || "");
 
         const a = getAudio();
-        const sameSong = a.src && a.src.includes(String(data.track.id));
-        if (data.isPlaying && !sameSong && data.track?.url) {
-          a.src = data.track.url;
-          // 计算应该从哪秒开始播放
+        // 用歌曲 ID 判断是否是同一首歌
+        const currentId = (a as any)._trackId;
+        const sameSong = currentId === data.track.id;
+        if (data.isPlaying && !sameSong && data.track) {
+          // 获取新的播放 URL（旧的已过期）
+          const urlRes = await fetch(`${NE_API}/song/url/v1?id=${data.track.id}&level=standard`);
+          const urlData = await urlRes.json() as any;
+          const url = urlData.data?.[0]?.url;
+          if (!url) return;
+          (a as any)._trackId = data.track.id;
+          a.src = url;
           if (data.startedAt) {
-            const elapsed = (Date.now() - data.startedAt) / 1000;
-            a.currentTime = elapsed > 0 ? elapsed : 0;
+            a.currentTime = Math.max(0, (Date.now() - data.startedAt) / 1000);
           }
           let retries = 3;
           const tryPlay = async () => {
-            try { await a.play(); setIsPlaying(true); return; } catch { /* blocked */ }
+            try { await a.play(); setIsPlaying(true); return; } catch {}
             if (--retries > 0) setTimeout(tryPlay, 500);
             else setIsPlaying(false);
           };
