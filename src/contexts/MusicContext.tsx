@@ -34,6 +34,7 @@ interface MusicState {
 
   /** 操作 */
   loginNetease: (phone: string, password: string) => Promise<string | null>;
+  logoutNetease: () => void;
   getQrKey: () => Promise<string>;
   getQrImage: (key: string) => Promise<string>;
   checkQr: (key: string) => Promise<number>;
@@ -119,6 +120,26 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       }
     }
     return data.code as number;
+  }, []);
+
+  /** 退出网易云 */
+  const logoutNetease = useCallback(() => {
+    localStorage.removeItem("ne_cookie");
+    localStorage.removeItem("ne_profile");
+    localStorage.removeItem("ne_uid");
+    setCookie("");
+    setNeteaseUid("");
+    setNeteaseLoggedIn(false);
+    setNeteaseProfile(null);
+    setPlaylist([]);
+    setPlaylistName("");
+    setFmTracks([]);
+    setUserPlaylists([]);
+    const a = getAudio();
+    a.pause();
+    a.src = "";
+    setCurrentTrack(null);
+    setIsPlaying(false);
   }, []);
 
   /** 密码登录 */
@@ -292,7 +313,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       neteaseLoggedIn, neteaseProfile, cookie,
       currentTrack, isPlaying, playlist, playlistName,
       userPlaylists, fmTracks,
-      loginNetease, getQrKey, getQrImage, checkQr,
+      loginNetease, logoutNetease, getQrKey, getQrImage, checkQr,
       loadPlaylist, loadUserPlaylists, loadPersonalFm,
       setDefaultPlaylist, initMusic,
       play, pause, next, prev,

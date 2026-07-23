@@ -13,7 +13,7 @@ export default function MusicPage() {
     neteaseLoggedIn, neteaseProfile,
     currentTrack, isPlaying, playlist, playlistName,
     userPlaylists,
-    loginNetease, getQrKey, getQrImage, checkQr,
+    loginNetease, logoutNetease, getQrKey, getQrImage, checkQr,
     loadPlaylist, loadUserPlaylists, loadPersonalFm, setDefaultPlaylist,
     play, pause, next, prev,
   } = useMusic();
@@ -92,10 +92,20 @@ export default function MusicPage() {
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
       <header className="mb-10">
-        <h1 className="text-3xl font-bold">音乐</h1>
-        <p className="mt-2 text-muted-foreground">
-          {neteaseLoggedIn ? `🎧 ${neteaseProfile?.nickname} 已登录` : "管理员登录后可播放音乐"}
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">音乐</h1>
+            <p className="mt-2 text-muted-foreground">
+              {neteaseLoggedIn ? `🎧 ${neteaseProfile?.nickname} 已登录` : "管理员登录后可播放音乐"}
+            </p>
+          </div>
+          {neteaseLoggedIn && (
+            <Button variant="ghost" size="sm" onClick={logoutNetease}
+              className="text-muted-foreground hover:text-destructive">
+              退出网易云
+            </Button>
+          )}
+        </div>
       </header>
 
       {/* 登录 */}
