@@ -280,17 +280,15 @@ export default function MusicPage() {
                     {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}</button>
                   <button onClick={next} className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-primary/[0.06] transition-colors cursor-pointer"><SkipForward className="h-5 w-5" /></button>
                 </div>
-                {/* 播放模式 */}
-                <div className="flex items-center justify-center gap-2 mt-3">
-                  <button onClick={() => setPlayMode(0)} title="顺序播放"
-                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                    <Shuffle className="h-3.5 w-3.5" style={playMode === 0 ? {} : { opacity: 0 }} /></button>
-                  <button onClick={() => setPlayMode(m => m === 1 ? 0 : 1)} title={playMode === 1 ? "单曲循环中" : "单曲循环"}
-                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 1 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                    <Repeat1 className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => setPlayMode(m => m === 2 ? 0 : 2)} title={playMode === 2 ? "随机播放中" : "随机播放"}
-                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 2 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
-                    <Shuffle className="h-3.5 w-3.5" /></button>
+                {/* 播放模式切换 */}
+                <div className="flex items-center justify-center mt-3">
+                  <button onClick={() => setPlayMode(m => (m + 1) % 3)}
+                    className="p-1.5 rounded-md text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    title={["顺序播放", "单曲循环", "随机播放"][playMode]}>
+                    {playMode === 1 ? <Repeat1 className="h-4 w-4 text-primary" /> :
+                     playMode === 2 ? <Shuffle className="h-4 w-4 text-primary" /> :
+                     <Shuffle className="h-4 w-4" style={{ opacity: 0.3 }} />}
+                  </button>
                 </div>
               </div>
             </div>
