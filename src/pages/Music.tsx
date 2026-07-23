@@ -8,10 +8,16 @@ import { Play, Pause, SkipBack, SkipForward, LogIn, QrCode, Key } from "lucide-r
 const API = "https://api-enhanced-main-orpin.vercel.app";
 const BACKEND = "https://cf-backend-lake.vercel.app";
 
+// 全局持久音频（切路由不中断）
+let globalAudio: HTMLAudioElement | null = null;
+function getAudio() {
+  if (!globalAudio) { globalAudio = new Audio(); globalAudio.volume = 0.5; }
+  return globalAudio;
+}
+
 export default function MusicPage() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
-  const audioRef = useRef<HTMLAudioElement>(null);
 
   // 播放器状态
   const [playlist, setPlaylist] = useState<any[]>([]);
@@ -89,7 +95,7 @@ export default function MusicPage() {
     const url = d.data?.[0]?.url;
     if (!url) return;
 
-    const a = audioRef.current!;
+    const a = getAudio();
     a.src = url;
     a.play();
     setCurrentIdx(idx);
@@ -97,14 +103,21 @@ export default function MusicPage() {
   };
 
   const togglePlay = () => {
-    const a = audioRef.current!;
+    const a = getAudio();
     isPlaying ? a.pause() : a.play();
     setIsPlaying(!isPlaying);
   };
 
   const next = () => { if (playlist.length) play((currentIdx + 1) % playlist.length); };
   const prev = () => { if (playlist.length) play((currentIdx - 1 + playlist.length) % playlist.length); };
-  const onEnded = () => { next(); };
+
+  // 歌曲结束自动下一首
+  useEffect(() => {
+    const a = getAudio();
+    const handler = () => next();
+    a.addEventListener("ended", handler);
+    return () => a.removeEventListener("ended", handler);
+  }, [currentIdx, playlist]);
 
   // 管理员加载歌单
   const loadNeteasePlaylist = async (id: number) => {
@@ -180,7 +193,6 @@ export default function MusicPage() {
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-16">
-      <audio ref={audioRef} onEnded={onEnded} />
 
       <header className="mb-10 flex items-center justify-between">
         <div>
