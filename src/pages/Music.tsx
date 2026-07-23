@@ -15,6 +15,10 @@ function getAudio() {
   return globalAudio;
 }
 
+// 歌单缓存（避免每次进页面重新加载）
+let cachedPlaylist: any[] | null = null;
+let cachedPlaylistName = "";
+
 export default function MusicPage() {
   const { role } = useAuth();
   const isAdmin = role === "admin";
@@ -47,8 +51,14 @@ export default function MusicPage() {
   // 当前歌曲
   const currentTrack = playlist[currentIdx] || null;
 
-  // 加载默认歌单
+  // 加载默认歌单（缓存优先）
   useEffect(() => {
+    if (cachedPlaylist) {
+      setPlaylist(cachedPlaylist);
+      setPlaylistName(cachedPlaylistName);
+      setLoading(false);
+      return;
+    }
     fetch(`${BACKEND}/api/music/config`)
       .then(r => r.json())
       .then(c => {
@@ -63,8 +73,10 @@ export default function MusicPage() {
           artist: (s.ar || []).map((a: any) => a.name).join(" / "),
           album: s.al?.name || "", cover: s.al?.picUrl || "",
         }));
+        cachedPlaylist = tracks;
+        cachedPlaylistName = d.playlist?.name || "歌单";
         setPlaylist(tracks);
-        setPlaylistName(d.playlist?.name || "歌单");
+        setPlaylistName(cachedPlaylistName);
         setLoading(false);
       })
       .catch(() => setLoading(false));
