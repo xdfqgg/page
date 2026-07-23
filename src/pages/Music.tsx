@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipBack, SkipForward, LogIn, QrCode, Key, Shuffle, Repeat1 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, LogIn, QrCode, Key, Shuffle, Repeat1, Search } from "lucide-react";
 
 const API = "https://api-enhanced-main-orpin.vercel.app";
 const BACKEND = "https://cf-backend-lake.vercel.app";
@@ -29,6 +29,7 @@ export default function MusicPage() {
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
   // 播放模式: 0=顺序 1=单曲循环 2=随机
   const [playMode, setPlayMode] = useState(0);
 
@@ -327,9 +328,23 @@ export default function MusicPage() {
       {/* 歌单 */}
       {playlist.length > 0 && (
         <Card className="border-primary/[0.1] bg-card/60 backdrop-blur-xl">
-          <CardHeader><CardTitle className="text-lg">{playlistName}</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="text-lg">{playlistName}</CardTitle>
+            <div className="relative mt-3">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="搜索歌单..."
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+          </CardHeader>
           <CardContent className="space-y-1">
-            {playlist.map((track, i) => (
+            {playlist.filter(t =>
+              t.name.toLowerCase().includes(search.toLowerCase()) ||
+              t.artist.toLowerCase().includes(search.toLowerCase())
+            ).map((track, i) => (
               <button key={track.id} onClick={() => play(i)}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left transition-colors cursor-pointer ${
                   i === currentIdx ? "bg-primary/[0.08] text-primary font-medium" : "text-muted-foreground hover:bg-primary/[0.04] hover:text-foreground"
