@@ -29,6 +29,9 @@ interface MusicState {
 
   /** 操作 */
   loginNetease: (phone: string, password: string) => Promise<string | null>;
+  getQrKey: () => Promise<string>;
+  getQrImage: (key: string) => Promise<string>;
+  checkQr: (key: string) => Promise<number>;
   loadPlaylist: (id: number) => Promise<void>;
   play: (track?: Track) => void;
   pause: () => void;
@@ -65,7 +68,44 @@ export function MusicProvider({ children }: { children: ReactNode }) {
   const [playlist, setPlaylist] = useState<Track[]>([]);
   const [playlistName, setPlaylistName] = useState("");
 
-  /** 登录网易云 */
+  /** 二维码登录 - 获取 key */
+  const getQrKey = useCallback(async () => {
+    const res = await fetch(`${API}/login/qr/key`);
+    const data = await res.json() as any;
+    return data.data?.unikey || "";
+  }, []);
+
+  /** 二维码登录 - 生成二维码 */
+  const getQrImage = useCallback(async (key: string) => {
+    const res = await fetch(`${API}/login/qr/create?key=${key}&qrimg=true`);
+    const data = await res.json() as any;
+    return data.data?.qrimg || "";
+  }, []);
+
+  /** 二维码登录 - 检查扫码状态 */
+  const checkQr = useCallback(async (key: string) => {
+    const res = await fetch(`${API}/login/qr/check?key=${key}`);
+    const data = await res.json() as any;
+    // 800=过期 801=等待 802=已扫待确认 803=成功
+    if (data.code === 803 && data.cookie) {
+      const ck = data.cookie;
+      localStorage.setItem("ne_cookie", ck);
+      setCookie(ck);
+      setNeteaseLoggedIn(true);
+      // 获取用户信息
+      const statusRes = await fetch(`${API}/login/status?cookie=${ck}`);
+      const statusData = await statusRes.json() as any;
+      if (statusData.data?.profile) {
+        const p = statusData.data.profile;
+        const profile = { nickname: p.nickname, avatar: p.avatarUrl };
+        localStorage.setItem("ne_profile", JSON.stringify(profile));
+        setNeteaseProfile(profile);
+      }
+    }
+    return data.code as number;
+  }, []);
+
+  /** 密码登录 */
   const loginNetease = useCallback(async (phone: string, password: string) => {
     const res = await fetch(`${API}/login/cellphone?phone=${phone}&password=${password}`);
     const data = await res.json() as any;
@@ -157,7 +197,8 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     <MusicContext.Provider value={{
       neteaseLoggedIn, neteaseProfile, cookie,
       currentTrack, isPlaying, playlist, playlistName,
-      loginNetease, loadPlaylist, play, pause, next, prev,
+      loginNetease, getQrKey, getQrImage, checkQr,
+      loadPlaylist, play, pause, next, prev,
     }}>
       {children}
     </MusicContext.Provider>
