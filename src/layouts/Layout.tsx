@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import SakuraPetals from "@/components/SakuraPetals";
 import { useAuth } from "@/contexts/AuthContext";
+import { useMusic } from "@/contexts/MusicContext";
 
 /**
  * Layout — 全局布局（暗色极简风格，参考 2x.nz）
@@ -65,6 +66,20 @@ function useClock() {
 export default function Layout() {
   const clock = useClock();
   const { isLoggedIn, username, logout } = useAuth();
+  const { initMusic, play, currentTrack, isPlaying } = useMusic();
+
+  // 页面加载时初始化音乐
+  useEffect(() => { initMusic(); }, []);
+
+  // 首次点击页面时尝试播放（浏览器禁止自动播放）
+  useEffect(() => {
+    const tryPlay = () => {
+      if (currentTrack && !isPlaying) play();
+      document.removeEventListener("click", tryPlay);
+    };
+    document.addEventListener("click", tryPlay);
+    return () => document.removeEventListener("click", tryPlay);
+  }, [currentTrack, isPlaying]);
 
   return (
     <div className="min-h-screen bg-background text-foreground antialiased">

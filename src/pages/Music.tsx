@@ -14,7 +14,7 @@ export default function MusicPage() {
     currentTrack, isPlaying, playlist, playlistName,
     userPlaylists,
     loginNetease, getQrKey, getQrImage, checkQr,
-    loadPlaylist, loadUserPlaylists, loadPersonalFm,
+    loadPlaylist, loadUserPlaylists, loadPersonalFm, setDefaultPlaylist,
     play, pause, next, prev,
   } = useMusic();
 
@@ -168,10 +168,18 @@ export default function MusicPage() {
       {/* 登录后：私人 FM + 用户歌单 + 歌单歌曲 */}
       {neteaseLoggedIn && (
         <div className="space-y-8">
-          {/* 私人 FM */}
-          <Button variant="outline" onClick={loadPersonalFm} className="w-full rounded-full border-primary/[0.12] bg-primary/[0.04]">
-            <Radio className="h-4 w-4" />私人 FM
-          </Button>
+          {/* 私人 FM + 设默认 */}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={loadPersonalFm} className="flex-1 rounded-full border-primary/[0.12] bg-primary/[0.04]">
+              <Radio className="h-4 w-4" />私人 FM
+            </Button>
+            {isAdmin && playlist.length > 0 && (
+              <Button variant="outline" onClick={() => setDefaultPlaylist(Number(playlistId))}
+                className="rounded-full border-primary/[0.12] bg-primary/[0.04] text-xs">
+                设为默认歌单
+              </Button>
+            )}
+          </div>
 
           {/* 用户歌单 */}
           {userPlaylists.length > 0 && (

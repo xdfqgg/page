@@ -3,8 +3,9 @@ import {
   type ReactNode,
 } from "react";
 
-/** 网易云 API 地址 */
-const API = "https://api-enhanced-main-orpin.vercel.app";
+/** API 地址 */
+const NE_API = "https://api-enhanced-main-orpin.vercel.app";
+const BACKEND = "https://cf-backend-lake.vercel.app";
 
 interface Track {
   id: number;
@@ -39,6 +40,8 @@ interface MusicState {
   loadPlaylist: (id: number) => Promise<void>;
   loadUserPlaylists: () => Promise<void>;
   loadPersonalFm: () => Promise<void>;
+  setDefaultPlaylist: (id: number) => Promise<void>;
+  initMusic: () => Promise<void>;
   play: (track?: Track) => void;
   pause: () => void;
   next: () => void;
@@ -78,21 +81,21 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 二维码登录 - 获取 key */
   const getQrKey = useCallback(async () => {
-    const res = await fetch(`${API}/login/qr/key`);
+    const res = await fetch(`${NE_API}/login/qr/key`);
     const data = await res.json() as any;
     return data.data?.unikey || "";
   }, []);
 
   /** 二维码登录 - 生成二维码 */
   const getQrImage = useCallback(async (key: string) => {
-    const res = await fetch(`${API}/login/qr/create?key=${key}&qrimg=true`);
+    const res = await fetch(`${NE_API}/login/qr/create?key=${key}&qrimg=true`);
     const data = await res.json() as any;
     return data.data?.qrimg || "";
   }, []);
 
   /** 二维码登录 - 检查扫码状态 */
   const checkQr = useCallback(async (key: string) => {
-    const res = await fetch(`${API}/login/qr/check?key=${key}`);
+    const res = await fetch(`${NE_API}/login/qr/check?key=${key}`);
     const data = await res.json() as any;
     // 800=过期 801=等待 802=已扫待确认 803=成功
     if (data.code === 803 && data.cookie) {
@@ -101,7 +104,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       setCookie(ck);
       setNeteaseLoggedIn(true);
       // 获取用户信息
-      const statusRes = await fetch(`${API}/login/status?cookie=${ck}`);
+      const statusRes = await fetch(`${NE_API}/login/status?cookie=${ck}`);
       const statusData = await statusRes.json() as any;
       if (statusData.data?.profile) {
         const p = statusData.data.profile;
@@ -115,7 +118,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 密码登录 */
   const loginNetease = useCallback(async (phone: string, password: string) => {
-    const res = await fetch(`${API}/login/cellphone?phone=${phone}&password=${password}`);
+    const res = await fetch(`${NE_API}/login/cellphone?phone=${phone}&password=${password}`);
     const data = await res.json() as any;
     if (data.code !== 200) return data.msg || "登录失败";
 
@@ -135,7 +138,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 加载歌单 */
   const loadPlaylist = useCallback(async (id: number) => {
-    const res = await fetch(`${API}/playlist/track/all?id=${id}&cookie=${cookie}`);
+    const res = await fetch(`${NE_API}/playlist/track/all?id=${id}&cookie=${cookie}`);
     const data = await res.json() as any;
     if (data.code !== 200) return;
 
@@ -153,7 +156,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 加载用户歌单列表 */
   const loadUserPlaylists = useCallback(async () => {
-    const res = await fetch(`${API}/user/playlist?cookie=${cookie}`);
+    const res = await fetch(`${NE_API}/user/playlist?cookie=${cookie}`);
     const data = await res.json() as any;
     if (data.code !== 200) return;
     const pls = (data.playlist || []).map((p: any) => ({
@@ -167,7 +170,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
 
   /** 加载私人 FM */
   const loadPersonalFm = useCallback(async () => {
-    const res = await fetch(`${API}/personal_fm?cookie=${cookie}`);
+    const res = await fetch(`${NE_API}/personal_fm?cookie=${cookie}`);
     const data = await res.json() as any;
     if (data.code !== 200) return;
     const tracks: Track[] = (data.data || []).map((s: any) => ({
@@ -181,6 +184,28 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     if (tracks.length > 0) setPlaylist(tracks);
   }, [cookie]);
 
+  /** 设默认歌单（管理员） */
+  const setDefaultPlaylist = useCallback(async (id: number) => {
+    await fetch(`${BACKEND}/api/music/config`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ playlistId: String(id) }),
+    });
+  }, []);
+
+  /** 初始化：加载默认歌单并自动播放 */
+  const initMusic = useCallback(async () => {
+    try {
+      // 如果管理员已登录网易云，用管理员设定
+      const res = await fetch(`${BACKEND}/api/music/config`);
+      const config = await res.json() as { playlistId?: string };
+      const id = Number(config.playlistId || "3778678");
+      loadPlaylist(id);
+    } catch {
+      loadPlaylist(3778678); // 默认热歌榜
+    }
+  }, [loadPlaylist]);
+
   /** 获取歌曲播放地址并播放 */
   const play = useCallback(async (track?: Track) => {
     const t = track || currentTrack;
@@ -189,7 +214,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
     const audio = getAudio();
 
     if (!t.url) {
-      const res = await fetch(`${API}/song/url/v1?id=${t.id}&level=standard&cookie=${cookie}`);
+      const res = await fetch(`${NE_API}/song/url/v1?id=${t.id}&level=standard&cookie=${cookie}`);
       const data = await res.json() as any;
       const url = data.data?.[0]?.url;
       if (!url) return;
@@ -238,6 +263,7 @@ export function MusicProvider({ children }: { children: ReactNode }) {
       userPlaylists, fmTracks,
       loginNetease, getQrKey, getQrImage, checkQr,
       loadPlaylist, loadUserPlaylists, loadPersonalFm,
+      setDefaultPlaylist, initMusic,
       play, pause, next, prev,
     }}>
       {children}
