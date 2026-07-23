@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router";
 import { cn } from "@/lib/utils";
 import {
@@ -43,7 +44,17 @@ const NAV_ITEMS: NavItem[] = [
   { to: "/anime", label: "番剧", icon: Tv },
 ];
 
+function useClock() {
+  const [time, setTime] = useState(new Date());
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
+  return time.toLocaleTimeString("zh-CN", { hour12: false });
+}
+
 export default function Layout() {
+  const clock = useClock();
   const { isLoggedIn, username, logout } = useAuth();
 
   return (
@@ -58,7 +69,7 @@ export default function Layout() {
             to="/"
             className="flex items-center gap-3 font-bold text-lg tracking-tight hover:text-foreground/80 transition-colors"
           >
-            <img src={import.meta.env.BASE_URL + "xdfq-logo.png"} alt="XDFQ" className="h-8 w-auto" />
+            <span className="font-mono tabular-nums tracking-tight text-lg font-bold">{clock}</span>
           </Link>
 
           {/* 右侧：导航菜单 */}
