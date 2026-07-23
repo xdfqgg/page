@@ -40,49 +40,53 @@ export default function MusicPage() {
     }
   }, [neteaseLoggedIn]);
 
-  // 二维码模式自动生成
+  // 预加载：管理员未登录时立即获取 key
   useEffect(() => {
-    if (loginMode === "qr" && !neteaseLoggedIn && !qrImage) {
-      startQrLogin();
+    if (isAdmin && !neteaseLoggedIn) {
+      getQrKey().then((key) => {
+        if (key && !qrImage) {
+          getQrImage(key).then((img) => {
+            if (img) {
+              setQrImage(img);
+              setQrStatus("请用网易云 App 扫码");
+              startPolling(key);
+            }
+          });
+        }
+      });
     }
-  }, [loginMode, neteaseLoggedIn]);
+  }, [isAdmin, neteaseLoggedIn]);
 
-  /** 生成二维码 */
-  const startQrLogin = async () => {
-    setQrStatus("生成中...");
-    const key = await getQrKey();
-    if (!key) { setQrStatus("获取二维码失败"); return; }
-
-    const img = await getQrImage(key);
-    if (!img) { setQrStatus("生成二维码失败"); return; }
-
-    setQrImage(img);
-    setQrStatus("请用网易云 App 扫码");
-
-    // 轮询检查
+  /** 开始轮询扫码结果 */
+  const startPolling = (key: string) => {
+    const stopPoll = () => {
+      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
+    };
     const poll = async () => {
       const code = await checkQr(key);
       switch (code) {
         case 800: setQrStatus("二维码已过期，重新生成"); stopPoll(); break;
-        case 801: break; // 继续等待
+        case 801: break;
         case 802: setQrStatus("已扫描，请在手机上确认"); break;
-        case 803:
-          setQrStatus("登录成功！");
-          setQrImage("");
-          stopPoll();
-          break;
+        case 803: setQrStatus("登录成功！"); setQrImage(""); stopPoll(); break;
       }
     };
-
-    const stopPoll = () => {
-      if (qrTimerRef.current) { clearInterval(qrTimerRef.current); qrTimerRef.current = null; }
-    };
-
     stopPoll();
     poll();
     qrTimerRef.current = window.setInterval(poll, 2000);
+  };
 
-    return () => stopPoll();
+  /** 重新生成二维码 */
+  const startQrLogin = async () => {
+    setQrImage("");
+    setQrStatus("生成中...");
+    const key = await getQrKey();
+    if (!key) { setQrStatus("获取二维码失败"); return; }
+    const img = await getQrImage(key);
+    if (!img) { setQrStatus("生成二维码失败"); return; }
+    setQrImage(img);
+    setQrStatus("请用网易云 App 扫码");
+    startPolling(key);
   };
 
   const handleLogin = async (e: React.FormEvent) => {
