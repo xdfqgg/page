@@ -6,7 +6,7 @@ import { Search, Tv, Star } from "lucide-react";
 
 /** Bangumi API v0 */
 const BGM = "https://api.bgm.tv/v0";
-const USER = "xdfq";
+const USER = "1266983";
 
 interface Subject {
   id: number;
