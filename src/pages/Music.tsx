@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipBack, SkipForward, LogIn, QrCode, Key } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, LogIn, QrCode, Key, Shuffle, Repeat1 } from "lucide-react";
 
 const API = "https://api-enhanced-main-orpin.vercel.app";
 const BACKEND = "https://cf-backend-lake.vercel.app";
@@ -25,6 +25,8 @@ export default function MusicPage() {
   const [currentIdx, setCurrentIdx] = useState(-1);
   const [isPlaying, setIsPlaying] = useState(false);
   const [loading, setLoading] = useState(true);
+  // 播放模式: 0=顺序 1=单曲循环 2=随机
+  const [playMode, setPlayMode] = useState(0);
 
   // 管理员状态
   const [cookie, setCookie] = useState(() => localStorage.getItem("ne_cookie") || "");
@@ -108,16 +110,33 @@ export default function MusicPage() {
     setIsPlaying(!isPlaying);
   };
 
-  const next = () => { if (playlist.length) play((currentIdx + 1) % playlist.length); };
-  const prev = () => { if (playlist.length) play((currentIdx - 1 + playlist.length) % playlist.length); };
+  const nextRef = useRef<() => void>(() => {});
+  const next = () => {
+    if (!playlist.length) return;
+    let idx: number;
+    if (playMode === 2) idx = Math.floor(Math.random() * playlist.length);
+    else if (playMode === 1) idx = currentIdx; // 单曲循环
+    else idx = (currentIdx + 1) % playlist.length;
+    play(idx);
+  };
+  nextRef.current = next;
 
-  // 歌曲结束自动下一首
+  const prev = () => {
+    if (!playlist.length) return;
+    if (playMode === 2) { play(Math.floor(Math.random() * playlist.length)); return; }
+    play((currentIdx - 1 + playlist.length) % playlist.length);
+  };
+
+  // 歌曲结束：单曲循环直接 replay，其他模式下一首
   useEffect(() => {
     const a = getAudio();
-    const handler = () => next();
-    a.addEventListener("ended", handler);
-    return () => a.removeEventListener("ended", handler);
-  }, [currentIdx, playlist]);
+    const ended = () => {
+      if (playMode === 1) { a.currentTime = 0; a.play(); }
+      else nextRef.current();
+    };
+    a.addEventListener("ended", ended);
+    return () => a.removeEventListener("ended", ended);
+  }, [playMode]);
 
   // 管理员加载歌单
   const loadNeteasePlaylist = async (id: number) => {
@@ -260,6 +279,18 @@ export default function MusicPage() {
                   <button onClick={togglePlay} className="p-4 rounded-full bg-primary text-primary-foreground hover:bg-primary/80 transition-colors cursor-pointer shadow-lg">
                     {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}</button>
                   <button onClick={next} className="p-2 rounded-full text-muted-foreground hover:text-foreground hover:bg-primary/[0.06] transition-colors cursor-pointer"><SkipForward className="h-5 w-5" /></button>
+                </div>
+                {/* 播放模式 */}
+                <div className="flex items-center justify-center gap-2 mt-3">
+                  <button onClick={() => setPlayMode(0)} title="顺序播放"
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 0 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    <Shuffle className="h-3.5 w-3.5" style={playMode === 0 ? {} : { opacity: 0 }} /></button>
+                  <button onClick={() => setPlayMode(m => m === 1 ? 0 : 1)} title={playMode === 1 ? "单曲循环中" : "单曲循环"}
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 1 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    <Repeat1 className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => setPlayMode(m => m === 2 ? 0 : 2)} title={playMode === 2 ? "随机播放中" : "随机播放"}
+                    className={`p-1.5 rounded-md transition-colors cursor-pointer ${playMode === 2 ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}>
+                    <Shuffle className="h-3.5 w-3.5" /></button>
                 </div>
               </div>
             </div>
