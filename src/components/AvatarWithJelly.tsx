@@ -7,9 +7,10 @@ import { animate } from "animejs";
  */
 
 const ORBITS = [
-  { rx: 82, ry: 30, speed: 0.5, color: "oklch(0.72 0.2 85)", count: 5 },
-  { rx: 74, ry: 26, speed: -0.4, color: "oklch(0.63 0.15 20)", count: 4 },
-  { rx: 88, ry: 22, speed: 0.7, color: "rgba(255,255,255,0.55)", count: 3 },
+  { rx: 84, ry: 32, speed: 0.45, color: "oklch(0.72 0.2 85)", count: 8, size: 2.5 },
+  { rx: 76, ry: 28, speed: -0.38, color: "oklch(0.63 0.15 20)", count: 6, size: 2 },
+  { rx: 90, ry: 24, speed: 0.65, color: "rgba(255,255,255,0.5)", count: 5, size: 2 },
+  { rx: 80, ry: 36, speed: -0.55, color: "oklch(0.68 0.18 50 / 0.6)", count: 5, size: 2.5 },
 ];
 
 const FRAGMENTS = [
@@ -49,7 +50,8 @@ export default function AvatarWithJelly() {
       for (let i = 0; i < cfg.count; i++) {
         const dot = document.createElement("div");
         dot.className = "absolute rounded-full pointer-events-none";
-        dot.style.cssText = `width:3px; height:3px; background:${cfg.color}; box-shadow:0 0 5px 1px ${cfg.color}; left:50%; top:50%;`;
+        const s = (cfg as any).size || 3;
+        dot.style.cssText = `width:${s}px; height:${s}px; background:${cfg.color}; box-shadow:0 0 ${s*2}px ${s/2}px ${cfg.color}; left:50%; top:50%;`;
         back.appendChild(dot);
         all.push({ el: dot, rx: cfg.rx, ry: cfg.ry, speed: cfg.speed, offset: (i / cfg.count) * Math.PI * 2 });
       }
@@ -60,9 +62,19 @@ export default function AvatarWithJelly() {
       onUpdate: () => all.forEach((d) => {
         const a = driver.angle * d.speed + d.offset;
         d.el.style.translate = `${Math.cos(a) * d.rx}px ${Math.sin(a) * d.ry}px`;
-        const inFront = Math.cos(a) > 0;
-        if (inFront && d.el.parentElement === back) front.appendChild(d.el);
-        else if (!inFront && d.el.parentElement === front) back.appendChild(d.el);
+        const cosA = Math.cos(a);
+        const inFront = cosA > -0.1;
+        // 越靠近边缘越透明（模拟绕到后面）
+        d.el.style.opacity = String(0.3 + Math.abs(cosA) * 0.7);
+        if (inFront && d.el.parentElement === back) {
+          (d.el as any)._fading = true;
+          d.el.style.opacity = "0";
+          setTimeout(() => { front.appendChild(d.el); d.el.style.opacity = ""; (d.el as any)._fading = false; }, 150);
+        } else if (!inFront && d.el.parentElement === front && !(d.el as any)._fading) {
+          (d.el as any)._fading = true;
+          d.el.style.opacity = "0";
+          setTimeout(() => { back.appendChild(d.el); d.el.style.opacity = ""; (d.el as any)._fading = false; }, 150);
+        }
       }),
     });
     return () => { anim.pause(); all.forEach(d => d.el.remove()); };
