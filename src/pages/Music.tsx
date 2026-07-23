@@ -18,6 +18,8 @@ function getAudio() {
 // 歌单缓存（避免每次进页面重新加载）
 let cachedPlaylist: any[] | null = null;
 let cachedPlaylistName = "";
+let cachedIdx = -1;
+let cachedPlaying = false;
 
 export default function MusicPage() {
   const { role } = useAuth();
@@ -59,6 +61,8 @@ export default function MusicPage() {
     if (cachedPlaylist) {
       setPlaylist(cachedPlaylist);
       setPlaylistName(cachedPlaylistName);
+      setCurrentIdx(cachedIdx);
+      setIsPlaying(cachedPlaying);
       setLoading(false);
       return;
     }
@@ -117,12 +121,16 @@ export default function MusicPage() {
     a.play();
     setCurrentIdx(idx);
     setIsPlaying(true);
+    cachedIdx = idx;
+    cachedPlaying = true;
   };
 
   const togglePlay = () => {
     const a = getAudio();
-    isPlaying ? a.pause() : a.play();
-    setIsPlaying(!isPlaying);
+    const next = !isPlaying;
+    next ? a.play() : a.pause();
+    setIsPlaying(next);
+    cachedPlaying = next;
   };
 
   const nextRef = useRef<() => void>(() => {});
