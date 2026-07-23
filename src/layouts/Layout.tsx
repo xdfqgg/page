@@ -68,8 +68,11 @@ export default function Layout() {
   const { isLoggedIn, username, logout } = useAuth();
   const { initMusic, play, currentTrack } = useMusic();
 
-  // 页面加载时初始化音乐
-  useEffect(() => { initMusic(); }, []);
+  // 页面加载时初始化音乐（启动轮询同步）
+  useEffect(() => {
+    const cleanup = initMusic();
+    return cleanup;
+  }, []);
 
   // 首次点击页面时尝试播放（浏览器禁止自动播放后的恢复）
   useEffect(() => {
