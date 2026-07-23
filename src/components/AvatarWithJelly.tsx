@@ -6,10 +6,11 @@ import { animate } from "animejs";
  * 头像被切割为多个碎片，hover/click 时碎片分离再合拢
  */
 
-const PARTICLES = [
-  { r: 75, speed: 0.6, color: "oklch(0.72 0.2 85)", count: 3 },
-  { r: 68, speed: -0.5, color: "oklch(0.63 0.15 20)", count: 2 },
-  { r: 82, speed: 0.8, color: "rgba(255,255,255,0.6)", count: 2 },
+// 椭圆轨道: rx, ry, speed, color, count
+const ORBITS = [
+  { rx: 82, ry: 30, speed: 0.5, color: "oklch(0.72 0.2 85)", count: 5 },
+  { rx: 74, ry: 26, speed: -0.4, color: "oklch(0.63 0.15 20)", count: 4 },
+  { rx: 88, ry: 22, speed: 0.7, color: "rgba(255,255,255,0.55)", count: 3 },
 ];
 
 // 每个碎片的 clip-path 和悬停偏移方向
@@ -33,31 +34,42 @@ const FRAGMENTS = [
 ];
 
 export default function AvatarWithJelly() {
-  const orbitRef = useRef<HTMLDivElement>(null);
   const fragsRef = useRef<HTMLDivElement[]>([]);
-  /* ─── 轨道粒子 ─── */
+  /* ─── 椭圆轨道（前面+后面分层） ─── */
+  const backRef = useRef<HTMLDivElement>(null);
+  const frontRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const container = orbitRef.current;
-    if (!container) return;
-    const dots: Array<{ el: HTMLDivElement; r: number; speed: number; offset: number }> = [];
-    PARTICLES.forEach((cfg) => {
+    const back = backRef.current;
+    const front = frontRef.current;
+    if (!back || !front) return;
+
+    const all: Array<{ el: HTMLDivElement; rx: number; ry: number; speed: number; offset: number }> = [];
+    ORBITS.forEach((cfg) => {
       for (let i = 0; i < cfg.count; i++) {
         const dot = document.createElement("div");
         dot.className = "absolute rounded-full pointer-events-none";
         dot.style.cssText = `width:3px; height:3px; background:${cfg.color}; box-shadow:0 0 5px 1px ${cfg.color}; left:50%; top:50%;`;
-        container.appendChild(dot);
-        dots.push({ el: dot, r: cfg.r, speed: cfg.speed, offset: (i / cfg.count) * Math.PI * 2 });
+        back.appendChild(dot);
+        all.push({ el: dot, rx: cfg.rx, ry: cfg.ry, speed: cfg.speed, offset: (i / cfg.count) * Math.PI * 2 });
       }
     });
+
     const driver = { angle: 0 };
     const anim = animate(driver, {
       angle: Math.PI * 2, duration: 10000, ease: "linear", loop: true,
-      onUpdate: () => dots.forEach(d => {
-        const a = driver.angle * d.speed + d.offset;
-        d.el.style.translate = `${Math.cos(a) * d.r}px ${Math.sin(a) * d.r}px`;
-      }),
+      onUpdate: () => {
+        all.forEach((d) => {
+          const a = driver.angle * d.speed + d.offset;
+          d.el.style.translate = `${Math.cos(a) * d.rx}px ${Math.sin(a) * d.ry}px`;
+          // 右边=前面(在头像上方), 左边=后面(在头像下方)
+          const isFront = Math.cos(a) > 0.02;
+          if (isFront && d.el.parentElement === back) front.appendChild(d.el);
+          else if (!isFront && d.el.parentElement === front) back.appendChild(d.el);
+        });
+      },
     });
-    return () => { anim.pause(); dots.forEach(d => d.el.remove()); };
+    return () => { anim.pause(); all.forEach(d => d.el.remove()); };
   }, []);
 
   /* ─── 碎片动画 ─── */
@@ -88,7 +100,10 @@ export default function AvatarWithJelly() {
 
   return (
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 200, height: 200 }}>
-      <div ref={orbitRef} className="absolute inset-0 z-0" />
+      {/* 轨道后半（头像后面） */}
+      <div ref={backRef} className="absolute inset-0 z-0" />
+      {/* 轨道前半（头像前面） */}
+      <div ref={frontRef} className="absolute inset-0" style={{ zIndex: 3 }} />
 
       {/* 碎片头像容器 */}
       <div
