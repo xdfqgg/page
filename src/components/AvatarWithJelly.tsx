@@ -1,7 +1,7 @@
-import { useRef, useEffect, useCallback } from "react";
+import { useRef, useEffect, useCallback, useState } from "react";
 import { animate } from "animejs";
 
-/* ─── 轨道环 ─── */
+/* ─── 轨道环配置 ─── */
 const RINGS = [
   { rx: 90, ry: 36, speed: 0.35, color: "oklch(0.72 0.2 85 / 0.7)", count: 12, size: 2.5, ring: "oklch(0.72 0.2 85 / 0.12)" },
   { rx: 80, ry: 30, speed: -0.3, color: "oklch(0.63 0.15 20 / 0.55)", count: 8, size: 2, ring: "oklch(0.63 0.15 20 / 0.08)" },
@@ -9,11 +9,117 @@ const RINGS = [
   { rx: 84, ry: 40, speed: -0.45, color: "oklch(0.68 0.18 50 / 0.5)", count: 8, size: 2.5, ring: "oklch(0.68 0.18 50 / 0.1)" },
 ];
 
+/* ─── 玻璃裂纹生成 ─── */
+interface CrackLine {
+  d: string;
+  width: number;
+}
+
+/**
+ * 从撞击点生成放射状玻璃裂纹
+ * 返回 SVG path 数组，每条裂纹宽度递减
+ */
+function generateCracks(cx: number, cy: number, r: number, mainCount: number): CrackLine[] {
+  const lines: CrackLine[] = [];
+  const steps = 6;
+
+  for (let i = 0; i < mainCount; i++) {
+    const baseAngle = (i / mainCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    const mainLen = r * (0.5 + Math.random() * 0.5);
+
+    let pts = `M ${cx} ${cy}`;
+    let px = cx, py = cy;
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      const angle = baseAngle + (Math.random() - 0.5) * 0.6;
+      const segLen = mainLen / steps;
+      const jitter = r * 0.04 * (1 - t * 0.5);
+      px += Math.cos(angle) * segLen + (Math.random() - 0.5) * jitter;
+      py += Math.sin(angle) * segLen + (Math.random() - 0.5) * jitter;
+      const dist = Math.hypot(px - cx, py - cy);
+      if (dist > r * 0.92) {
+        const scale = (r * 0.92) / dist;
+        px = cx + (px - cx) * scale;
+        py = cy + (py - cy) * scale;
+      }
+      pts += ` L ${px} ${py}`;
+    }
+
+    const mainWidth = 1.8 + Math.random() * 1.2;
+    lines.push({ d: pts, width: mainWidth });
+
+    const branchCount = Math.floor(Math.random() * 3);
+    for (let b = 0; b < branchCount; b++) {
+      const splitT = 0.3 + Math.random() * 0.5;
+      const si = Math.floor(splitT * steps);
+      const sp = pts.split(" L ")[si] || pts.split(" L ")[0];
+      const [sxStr, syStr] = sp.split(" ").slice(1);
+      const spx = parseFloat(sxStr), spy = parseFloat(syStr);
+
+      const branchAngle = baseAngle + (Math.random() - 0.5) * 1.8;
+      const branchLen = mainLen * (0.2 + Math.random() * 0.35);
+
+      let bpts = `M ${spx} ${spy}`;
+      let bpx = spx, bpy = spy;
+      const bSteps = 3 + Math.floor(Math.random() * 2);
+      for (let bs = 1; bs <= bSteps; bs++) {
+        const ba = branchAngle + (Math.random() - 0.5) * 0.8;
+        const bl = branchLen / bSteps;
+        bpx += Math.cos(ba) * bl + (Math.random() - 0.5) * r * 0.03;
+        bpy += Math.sin(ba) * bl + (Math.random() - 0.5) * r * 0.03;
+        const bd = Math.hypot(bpx - cx, bpy - cy);
+        if (bd > r * 0.92) {
+          const s2 = (r * 0.92) / bd;
+          bpx = cx + (bpx - cx) * s2;
+          bpy = cy + (bpy - cy) * s2;
+        }
+        bpts += ` L ${bpx} ${bpy}`;
+      }
+      lines.push({ d: bpts, width: mainWidth * 0.4 + Math.random() * 0.3 });
+    }
+  }
+
+  return lines;
+}
+
+function scaleCracks(cracks: CrackLine[], oldR: number, newR: number): CrackLine[] {
+  const s = newR / oldR;
+  return cracks.map(c => ({
+    d: c.d.replace(/[\d.]+/g, (m) => (parseFloat(m) * s).toFixed(1)),
+    width: c.width * s,
+  }));
+}
+
 export default function AvatarWithJelly() {
+  const [cracks, setCracks] = useState<CrackLine[]>([]);
+  const [crackKey, setCrackKey] = useState(0);
   const backRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const shineRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const initCracks = generateCracks(60, 60, 60, 5);
+    setCracks(scaleCracks(initCracks, 60, 110));
+  }, []);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    const el = avatarRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const cx = ((e.clientX - rect.left) / rect.width) * 110;
+    const cy = ((e.clientY - rect.top) / rect.height) * 110;
+    const dist = Math.hypot(cx - 55, cy - 55);
+    if (dist > 52) return;
+
+    const newCracks = generateCracks(cx, cy, Math.min(55, dist + 30), 4 + Math.floor(Math.random() * 2));
+    setCracks(prev => [...prev, ...scaleCracks(newCracks, 60, 110)]);
+    setCrackKey(k => k + 1);
+
+    animate(el, { scale: [1, 0.96, 1.02, 1], duration: 400, ease: "out(3)" });
+  }, []);
+
+  const [hovered, setHovered] = useState(false);
 
   /* ─── 光环轨道 ─── */
   useEffect(() => {
@@ -86,19 +192,7 @@ export default function AvatarWithJelly() {
     return () => window.removeEventListener("mousemove", handler);
   }, []);
 
-  /* ─── Click 涟漪 ─── */
-  const handleClick = useCallback(() => {
-    const el = avatarRef.current;
-    if (!el) return;
-    animate(el, { scale: [1, 0.94, 1.03, 1], duration: 500, ease: "out(3)" });
-    for (let i = 0; i < 2; i++) {
-      const ripple = document.createElement("div");
-      ripple.className = "absolute inset-0 rounded-full pointer-events-none";
-      ripple.style.cssText = "border:1.5px solid oklch(0.7 0.2 85 / 0.4); z-index:20;";
-      el.appendChild(ripple);
-      animate(ripple, { scale: [0.8, 1.8], opacity: [0.5, 0], duration: 800, delay: i * 200, ease: "out(2)", onComplete: () => ripple.remove() });
-    }
-  }, []);
+  const viewBox = `0 0 110 110`;
 
   return (
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
@@ -109,17 +203,36 @@ export default function AvatarWithJelly() {
       <div
         ref={avatarRef}
         onClick={handleClick}
-        className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-hidden"
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        className="relative flex items-center justify-center rounded-full cursor-pointer select-none"
         style={{
-          width: 120, height: 120, zIndex: 1,
+          width: 126, height: 126, zIndex: 1,
           boxShadow: "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)",
           animation: "breathe-amber 3s ease-in-out infinite",
+          clipPath: "circle(50%)",
         }}
-        role="img" aria-label="头像"
+        role="img" aria-label="avatar with cracks"
       >
         <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
-          className="absolute inset-0 h-full w-full rounded-full object-cover pointer-events-none"
+          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
           draggable={false} />
+
+        <svg viewBox={viewBox} className="absolute inset-0 h-full w-full pointer-events-none"
+          style={{ filter: hovered ? "drop-shadow(0 0 3px oklch(0.7 0.2 85 / 0.5))" : "none" }}
+          key={crackKey}>
+          {cracks.map((c, i) => (
+            <path key={i} d={c.d} fill="none"
+              stroke="oklch(0.15 0.02 80 / 0.85)" strokeWidth={c.width}
+              strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+          {cracks.map((c, i) => (
+            <path key={`g-${i}`} d={c.d} fill="none"
+              stroke="oklch(0.72 0.2 85 / 0.25)" strokeWidth={c.width * 0.45}
+              strokeLinecap="round" strokeLinejoin="round" />
+          ))}
+        </svg>
+
         {/* 高光点（hover 追踪鼠标） */}
         <div ref={shineRef} className="absolute inset-0 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse at 42% 32%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)", opacity: 0.7 }} />
