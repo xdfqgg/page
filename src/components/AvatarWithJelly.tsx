@@ -75,35 +75,6 @@ export default function AvatarWithJelly() {
   const fragsRef = useRef<(HTMLDivElement | null)[]>([]);
   const fragments = useMemo(makeFragments, []);
 
-  /* --- 点击 --- */
-  const handleClick = useCallback(() => {
-    if (phase !== "idle") return;
-    const container = avatarRef.current;
-    if (!container) return;
-
-    const next = damage + 1;
-    setDamage(next);
-
-    // 闪光
-    if (flashRef.current) {
-      animate(flashRef.current, { opacity: [0.7, 0], duration: 250, ease: "out(3)" });
-    }
-
-    // 震动
-    animate(container, {
-      translateX: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
-      translateY: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
-      duration: 300, ease: "out(3)",
-    });
-
-    // 火星
-    spawnEmbers(container, 2 + next);
-
-    if (next >= MAX_DAMAGE) {
-      triggerExplosion();
-    }
-  }, [damage, phase]);
-
   /* --- 爆炸 --- */
   const triggerExplosion = useCallback(() => {
     setPhase("exploding");
@@ -166,6 +137,35 @@ export default function AvatarWithJelly() {
       }, 800);
     }, 1400);
   }, [fragments]);
+
+  /* --- 点击 --- */
+  const handleClick = useCallback(() => {
+    if (phase !== "idle") return;
+    const container = avatarRef.current;
+    if (!container) return;
+
+    const next = damage + 1;
+    setDamage(next);
+
+    // 闪光
+    if (flashRef.current) {
+      animate(flashRef.current, { opacity: [0.7, 0], duration: 250, ease: "out(3)" });
+    }
+
+    // 震动
+    animate(container, {
+      translateX: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
+      translateY: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
+      duration: 300, ease: "out(3)",
+    });
+
+    // 火星
+    spawnEmbers(container, 2 + next);
+
+    if (next >= MAX_DAMAGE) {
+      triggerExplosion();
+    }
+  }, [damage, phase, triggerExplosion]);
 
   /* --- 光环轨道 --- */
   useEffect(() => {
