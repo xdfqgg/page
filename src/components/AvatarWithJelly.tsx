@@ -300,7 +300,7 @@ export default function AvatarWithJelly() {
           style={{ background: "radial-gradient(ellipse at 50% 88%, rgba(255,255,255,0.15) 0%, transparent 30%)" }} />
       </div>
 
-      <div ref={frontRef} className="absolute inset-0" style={{ zIndex: 3 }} />
+      <div ref={frontRef} className="absolute inset-0 pointer-events-none" style={{ zIndex: 3 }} />
     </div>
   );
 }
