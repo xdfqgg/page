@@ -397,7 +397,7 @@ export default function AvatarWithJelly() {
         {(phase === "exploding" || phase === "rebuilding") && (
           <div className="absolute inset-0" style={{perspective:"400px",zIndex:2}}>
             {fragments.map((f, i) => (
-              <div key={i} ref={(el) => fragsRef.current[i] = el}
+              <div key={i} ref={(el) => { fragsRef.current[i] = el; }}
                 className="absolute"
                 style={{
                   left: f.left, top: f.top, width: f.w, height: f.h,
