@@ -1,7 +1,11 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+﻿import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { animate } from "animejs";
 
-/* ─── 轨道环配置 ─── */
+const GRID = 6;
+const SIZE = 126;
+const CELL = SIZE / GRID;
+const MAX_DAMAGE = 6;
+
 const RINGS = [
   { rx: 90, ry: 36, speed: 0.35, color: "oklch(0.72 0.2 85 / 0.7)", count: 12, size: 2.5, ring: "oklch(0.72 0.2 85 / 0.12)" },
   { rx: 80, ry: 30, speed: -0.3, color: "oklch(0.63 0.15 20 / 0.55)", count: 8, size: 2, ring: "oklch(0.63 0.15 20 / 0.08)" },
@@ -9,124 +13,165 @@ const RINGS = [
   { rx: 84, ry: 40, speed: -0.45, color: "oklch(0.68 0.18 50 / 0.5)", count: 8, size: 2.5, ring: "oklch(0.68 0.18 50 / 0.1)" },
 ];
 
-/* ─── 玻璃裂纹生成 ─── */
-interface CrackLine {
-  d: string;
-  width: number;
+interface CellFrag {
+  col: number; row: number; x: number; y: number;
+  dist: number; angle: number;
 }
 
-/**
- * 从撞击点生成放射状玻璃裂纹
- * 返回 SVG path 数组，每条裂纹宽度递减
- */
-function generateCracks(cx: number, cy: number, r: number, mainCount: number): CrackLine[] {
-  const lines: CrackLine[] = [];
-  const steps = 6;
-
-  for (let i = 0; i < mainCount; i++) {
-    const baseAngle = (i / mainCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-    const mainLen = r * (0.5 + Math.random() * 0.5);
-
-    let pts = `M ${cx} ${cy}`;
-    let px = cx, py = cy;
-    for (let s = 1; s <= steps; s++) {
-      const t = s / steps;
-      const angle = baseAngle + (Math.random() - 0.5) * 0.6;
-      const segLen = mainLen / steps;
-      const jitter = r * 0.04 * (1 - t * 0.5);
-      px += Math.cos(angle) * segLen + (Math.random() - 0.5) * jitter;
-      py += Math.sin(angle) * segLen + (Math.random() - 0.5) * jitter;
-      const dist = Math.hypot(px - cx, py - cy);
-      if (dist > r * 0.92) {
-        const scale = (r * 0.92) / dist;
-        px = cx + (px - cx) * scale;
-        py = cy + (py - cy) * scale;
+function makeFragments(): CellFrag[] {
+  const frags: CellFrag[] = [];
+  const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2;
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const fx = col * CELL + CELL / 2;
+      const fy = row * CELL + CELL / 2;
+      if (Math.hypot(fx - cx, fy - cy) <= r) {
+        frags.push({
+          col, row, x: col * CELL, y: row * CELL,
+          dist: Math.hypot(fx - cx, fy - cy),
+          angle: Math.atan2(fy - cy, fx - cx),
+        });
       }
-      pts += ` L ${px} ${py}`;
-    }
-
-    const mainWidth = 1.8 + Math.random() * 1.2;
-    lines.push({ d: pts, width: mainWidth });
-
-    const branchCount = Math.floor(Math.random() * 3);
-    for (let b = 0; b < branchCount; b++) {
-      const splitT = 0.3 + Math.random() * 0.5;
-      const si = Math.floor(splitT * steps);
-      const sp = pts.split(" L ")[si] || pts.split(" L ")[0];
-      const [sxStr, syStr] = sp.split(" ").slice(1);
-      const spx = parseFloat(sxStr), spy = parseFloat(syStr);
-
-      const branchAngle = baseAngle + (Math.random() - 0.5) * 1.8;
-      const branchLen = mainLen * (0.2 + Math.random() * 0.35);
-
-      let bpts = `M ${spx} ${spy}`;
-      let bpx = spx, bpy = spy;
-      const bSteps = 3 + Math.floor(Math.random() * 2);
-      for (let bs = 1; bs <= bSteps; bs++) {
-        const ba = branchAngle + (Math.random() - 0.5) * 0.8;
-        const bl = branchLen / bSteps;
-        bpx += Math.cos(ba) * bl + (Math.random() - 0.5) * r * 0.03;
-        bpy += Math.sin(ba) * bl + (Math.random() - 0.5) * r * 0.03;
-        const bd = Math.hypot(bpx - cx, bpy - cy);
-        if (bd > r * 0.92) {
-          const s2 = (r * 0.92) / bd;
-          bpx = cx + (bpx - cx) * s2;
-          bpy = cy + (bpy - cy) * s2;
-        }
-        bpts += ` L ${bpx} ${bpy}`;
-      }
-      lines.push({ d: bpts, width: mainWidth * 0.4 + Math.random() * 0.3 });
     }
   }
-
-  return lines;
+  return frags;
 }
 
-function scaleCracks(cracks: CrackLine[], oldR: number, newR: number): CrackLine[] {
-  const s = newR / oldR;
-  return cracks.map(c => ({
-    d: c.d.replace(/[\d.]+/g, (m) => (parseFloat(m) * s).toFixed(1)),
-    width: c.width * s,
-  }));
+type Phase = "idle" | "exploding" | "rebuilding";
+
+function spawnEmbers(container: HTMLElement, count: number) {
+  for (let i = 0; i < count; i++) {
+    const ember = document.createElement("div");
+    const s = 3 + Math.random() * 4;
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 10 + Math.random() * 20;
+    ember.style.cssText = `
+      position:absolute; left:50%; top:50%; border-radius:50%;
+      width:${s}px; height:${s}px; pointer-events:none; z-index:10;
+      background:oklch(${0.6 + Math.random() * 0.25} ${0.2 + Math.random() * 0.1} ${30 + Math.random() * 40});
+      box-shadow:0 0 ${s * 3}px ${s}px oklch(0.7 0.25 40 / 0.5);
+    `;
+    container.appendChild(ember);
+    animate(ember, {
+      translateX: [0, Math.cos(angle) * dist],
+      translateY: [0, Math.sin(angle) * dist - 15 - Math.random() * 20],
+      opacity: [1, 0],
+      scale: [1, 0.3],
+      duration: 600 + Math.random() * 400,
+      ease: "out(2)",
+      onComplete: () => ember.remove(),
+    });
+  }
 }
 
 export default function AvatarWithJelly() {
-  const [cracks, setCracks] = useState<CrackLine[]>([]);
-  const [crackKey, setCrackKey] = useState(0);
+  const [damage, setDamage] = useState(0);
+  const [phase, setPhase] = useState<Phase>("idle");
   const backRef = useRef<HTMLDivElement>(null);
   const frontRef = useRef<HTMLDivElement>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const shineRef = useRef<HTMLDivElement>(null);
+  const flashRef = useRef<HTMLDivElement>(null);
+  const fragsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const fragments = useMemo(makeFragments, []);
 
-  useEffect(() => {
-    const initCracks = generateCracks(60, 60, 60, 5);
-    setCracks(scaleCracks(initCracks, 60, 110));
-  }, []);
-
+  /* --- 点击 --- */
   const handleClick = useCallback((e: React.MouseEvent) => {
-    const el = avatarRef.current;
-    if (!el) return;
-    const rect = el.getBoundingClientRect();
-    const cx = ((e.clientX - rect.left) / rect.width) * 110;
-    const cy = ((e.clientY - rect.top) / rect.height) * 110;
-    const dist = Math.hypot(cx - 55, cy - 55);
-    if (dist > 52) return;
+    if (phase !== "idle") return;
+    const container = avatarRef.current;
+    if (!container) return;
 
-    const newCracks = generateCracks(cx, cy, Math.min(55, dist + 30), 4 + Math.floor(Math.random() * 2));
-    setCracks(prev => [...prev, ...scaleCracks(newCracks, 60, 110)]);
-    setCrackKey(k => k + 1);
+    const next = damage + 1;
+    setDamage(next);
 
-    animate(el, { scale: [1, 0.96, 1.02, 1], duration: 400, ease: "out(3)" });
-  }, []);
+    // 闪光
+    if (flashRef.current) {
+      animate(flashRef.current, { opacity: [0.7, 0], duration: 250, ease: "out(3)" });
+    }
 
-  const [hovered, setHovered] = useState(false);
+    // 震动
+    animate(container, {
+      translateX: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
+      translateY: [0, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 4, 0],
+      duration: 300, ease: "out(3)",
+    });
 
-  /* ─── 光环轨道 ─── */
+    // 火星
+    spawnEmbers(container, 2 + next);
+
+    if (next >= MAX_DAMAGE) {
+      triggerExplosion();
+    }
+  }, [damage, phase]);
+
+  /* --- 爆炸 --- */
+  const triggerExplosion = useCallback(() => {
+    setPhase("exploding");
+    const container = avatarRef.current;
+    if (!container) return;
+
+    // 大白闪
+    if (flashRef.current) {
+      animate(flashRef.current, { opacity: [0, 1, 0.8, 0], duration: 400, ease: "out(3)" });
+    }
+
+    // 震动
+    animate(container, {
+      translateX: [0, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10, 0],
+      translateY: [0, (Math.random() - 0.5) * 14, (Math.random() - 0.5) * 10, 0],
+      duration: 500, ease: "out(2)",
+    });
+
+    // 火星
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => spawnEmbers(container, 8), i * 60);
+    }
+
+    // 碎片飞散
+    fragsRef.current.forEach((el, i) => {
+      if (!el) return;
+      const f = fragments[i];
+      if (!f) return;
+      const flyDist = 80 + Math.random() * 120 + f.dist * 0.5;
+      const flyAngle = f.angle + (Math.random() - 0.5) * 0.5;
+      const rot = (Math.random() - 0.5) * 720;
+      el.style.display = "block";
+      animate(el, {
+        translateX: Math.cos(flyAngle) * flyDist,
+        translateY: Math.sin(flyAngle) * flyDist,
+        rotate: rot,
+        opacity: [1, 0.7],
+        duration: 600 + Math.random() * 300,
+        ease: "out(3)",
+        delay: Math.random() * 80,
+      });
+    });
+
+    // 复原
+    setTimeout(() => {
+      setPhase("rebuilding");
+      fragsRef.current.forEach((el) => {
+        if (!el) return;
+        animate(el, {
+          translateX: 0, translateY: 0, rotate: 0, opacity: 1,
+          duration: 500 + Math.random() * 200,
+          ease: "out(4)",
+          delay: Math.random() * 100,
+          onComplete: () => { el.style.display = ""; },
+        });
+      });
+      setTimeout(() => {
+        setDamage(0);
+        setPhase("idle");
+      }, 800);
+    }, 1400);
+  }, [fragments]);
+
+  /* --- 光环轨道 --- */
   useEffect(() => {
     const back = backRef.current, front = frontRef.current;
     if (!back || !front) return;
 
-    // 轨道线
     const ringEls: HTMLDivElement[] = [];
     RINGS.forEach((cfg) => {
       const r = document.createElement("div");
@@ -134,7 +179,6 @@ export default function AvatarWithJelly() {
       back.appendChild(r); ringEls.push(r);
     });
 
-    // 粒子
     const all: Array<{ el: HTMLDivElement; rx: number; ry: number; speed: number; offset: number; fading: boolean }> = [];
     RINGS.forEach((cfg) => {
       for (let i = 0; i < cfg.count; i++) {
@@ -165,7 +209,14 @@ export default function AvatarWithJelly() {
     return () => { anim.pause(); all.forEach(d => d.el.remove()); ringEls.forEach(r => r.remove()); };
   }, []);
 
-  /* ─── Hover 高光追踪 ─── */
+  /* --- 光晕 --- */
+  const glowIntensity = damage / MAX_DAMAGE;
+  const boxShadow = phase === "idle"
+    ? `0 0 ${25 + glowIntensity * 30}px ${4 + glowIntensity * 8}px oklch(0.7 ${0.2 + glowIntensity * 0.15} ${85 - glowIntensity * 40} / ${0.2 + glowIntensity * 0.4}), 0 0 ${60 + glowIntensity * 50}px ${10 + glowIntensity * 15}px oklch(0.7 ${0.2 + glowIntensity * 0.1} ${85 - glowIntensity * 30} / ${0.08 + glowIntensity * 0.2})`
+    : "0 0 30px 8px oklch(0.8 0.3 40 / 0.6), 0 0 80px 20px oklch(0.8 0.3 40 / 0.3)";
+  const damageColor = `oklch(${0.7 + glowIntensity * 0.15} ${0.2 + glowIntensity * 0.15} ${65 - glowIntensity * 25})`;
+
+  /* --- Hover 高光追踪 --- */
   useEffect(() => {
     const el = avatarRef.current;
     const shine = shineRef.current;
@@ -184,7 +235,6 @@ export default function AvatarWithJelly() {
         const sy = 50 + (dy / (dist || 1)) * 16 * t;
         shine.style.background = `radial-gradient(ellipse at ${sx}% ${sy}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.03) 55%, transparent 72%)`;
         shine.style.opacity = "1";
-        el.style.boxShadow = `0 0 ${25 + 15 * t}px ${4 + 6 * t}px oklch(0.7 0.2 85 / ${0.2 + t * 0.25}), 0 0 ${55 + 35 * t}px ${10 + 15 * t}px oklch(0.7 0.2 85 / ${0.08 + t * 0.1})`;
       }
     };
 
@@ -192,56 +242,64 @@ export default function AvatarWithJelly() {
     return () => window.removeEventListener("mousemove", handler);
   }, []);
 
-  const viewBox = `0 0 110 110`;
-
   return (
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
-      {/* 光环后层 */}
       <div ref={backRef} className="absolute inset-0 z-0" />
 
-      {/* 水滴头像 + 呼吸光晕 */}
       <div
         ref={avatarRef}
         onClick={handleClick}
-        onMouseEnter={() => setHovered(true)}
-        onMouseLeave={() => setHovered(false)}
-        className="relative flex items-center justify-center rounded-full cursor-pointer select-none"
+        className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-visible"
         style={{
-          width: 126, height: 126, zIndex: 1,
-          boxShadow: "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)",
-          animation: "breathe-amber 3s ease-in-out infinite",
-          clipPath: "circle(50%)",
+          width: SIZE, height: SIZE, zIndex: 1, boxShadow,
+          animation: phase === "idle" ? "breathe-amber 3s ease-in-out infinite" : "none",
         }}
-        role="img" aria-label="avatar with cracks"
+        role="img" aria-label="avatar"
       >
-        <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
-          className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-          draggable={false} />
+        {/* 行星本体 */}
+        <div className={`absolute inset-0 rounded-full overflow-hidden ${phase === "exploding" || phase === "rebuilding" ? "opacity-0" : "opacity-100"} transition-opacity duration-150`}
+          style={{ clipPath: "circle(50%)" }}>
+          <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
+            className="h-full w-full object-cover pointer-events-none" draggable={false} />
+        </div>
 
-        <svg viewBox={viewBox} className="absolute inset-0 h-full w-full pointer-events-none"
-          style={{ filter: hovered ? "drop-shadow(0 0 3px oklch(0.7 0.2 85 / 0.5))" : "none" }}
-          key={crackKey}>
-          {cracks.map((c, i) => (
-            <path key={i} d={c.d} fill="none"
-              stroke="oklch(0.15 0.02 80 / 0.85)" strokeWidth={c.width}
-              strokeLinecap="round" strokeLinejoin="round" />
-          ))}
-          {cracks.map((c, i) => (
-            <path key={`g-${i}`} d={c.d} fill="none"
-              stroke="oklch(0.72 0.2 85 / 0.25)" strokeWidth={c.width * 0.45}
-              strokeLinecap="round" strokeLinejoin="round" />
-          ))}
-        </svg>
+        {/* 爆炸碎片 */}
+        {(phase === "exploding" || phase === "rebuilding") && (
+          <div className="absolute inset-0" style={{ clipPath: "circle(50%)" }}>
+            {fragments.map((f, i) => (
+              <div key={i}
+                ref={(el) => { fragsRef.current[i] = el; }}
+                className="absolute"
+                style={{
+                  left: f.x, top: f.y, width: CELL + 1, height: CELL + 1,
+                  backgroundImage: `url(${import.meta.env.BASE_URL}avatar.png)`,
+                  backgroundSize: `${SIZE}px ${SIZE}px`,
+                  backgroundPosition: `-${f.x}px -${f.y}px`,
+                }} />
+            ))}
+          </div>
+        )}
 
-        {/* 高光点（hover 追踪鼠标） */}
+        {/* 伤害光晕 */}
+        {damage > 0 && phase === "idle" && (
+          <div className="absolute inset-0 rounded-full pointer-events-none"
+            style={{
+              background: `radial-gradient(circle at 50% 50%, ${damageColor} 0%, transparent ${60 - glowIntensity * 20}%)`,
+              opacity: 0.15 + glowIntensity * 0.35, mixBlendMode: "screen",
+            }} />
+        )}
+
+        {/* 闪光层 */}
+        <div ref={flashRef} className="absolute inset-0 rounded-full pointer-events-none z-20"
+          style={{ background: "white", opacity: 0 }} />
+
+        {/* 高光 */}
         <div ref={shineRef} className="absolute inset-0 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse at 42% 32%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)", opacity: 0.7 }} />
-        {/* 底部反光（水珠坐在桌面） */}
         <div className="absolute inset-0 rounded-full pointer-events-none"
           style={{ background: "radial-gradient(ellipse at 50% 88%, rgba(255,255,255,0.15) 0%, transparent 30%)" }} />
       </div>
 
-      {/* 光环前层 */}
       <div ref={frontRef} className="absolute inset-0" style={{ zIndex: 3 }} />
     </div>
   );
