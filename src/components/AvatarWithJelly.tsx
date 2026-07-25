@@ -1,9 +1,7 @@
 import { useRef, useEffect, useCallback, useState, useMemo } from "react";
 import { animate } from "animejs";
-import * as THREE from "three";
 
 const SIZE = 126;
-const RADIUS = 60;
 const MAX_DAMAGE = 6;
 
 const RINGS = [
@@ -13,30 +11,37 @@ const RINGS = [
   { rx: 84, ry: 40, speed: -0.45, color: "oklch(0.68 0.18 50 / 0.5)", count: 8, size: 2.5, ring: "oklch(0.68 0.18 50 / 0.1)" },
 ];
 
-function genCracks(dmg: number): { d: string; w: number }[] {
-  const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2 - 4, pts = 8 + dmg * 2;
-  const out: { d: string; w: number }[] = [];
+/* ─── 裂纹：从边缘向内部延伸，含分支 + 熔岩池 ─── */
+function genCracks(d: number): { path: string; w: number; pool?: { x: number; y: number; r: number } }[] {
+  const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2 - 4, pts = 8 + d * 2;
+  const out: { path: string; w: number; pool?: { x: number; y: number; r: number } }[] = [];
   for (let i = 0; i < pts; i++) {
-    const eA = (i / pts) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-    const ex = cx + Math.cos(eA) * r, ey = cy + Math.sin(eA) * r;
+    const ea = (i / pts) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
+    const ex = cx + Math.cos(ea) * r, ey = cy + Math.sin(ea) * r;
     const len = r * (0.3 + Math.random() * 0.5);
-    let px = ex, py = ey, s = `M ${px} ${py}`;
-    for (let s2 = 1; s2 <= 3 + Math.floor(Math.random() * 4); s2++) {
-      const dir = eA + Math.PI + (Math.random() - 0.5) * 1.2;
-      const seg = len / (s2 + 1) * (0.5 + Math.random() * 0.7);
+    let px = ex, py = ey, p = `M ${px} ${py}`;
+    for (let s = 1; s <= 3 + Math.floor(Math.random() * 4); s++) {
+      const dir = ea + Math.PI + (Math.random() - 0.5) * 1.2;
+      const seg = len / (s + 1) * (0.5 + Math.random() * 0.7);
       px += Math.cos(dir) * seg + (Math.random() - 0.5) * 4;
       py += Math.sin(dir) * seg + (Math.random() - 0.5) * 4;
       const dd = Math.hypot(px - cx, py - cy);
       if (dd > r * 0.92) { const sc = (r * 0.92) / dd; px = cx + (px - cx) * sc; py = cy + (py - cy) * sc; }
-      s += ` L ${px} ${py}`;
+      p += ` L ${px} ${py}`;
     }
-    out.push({ d: s, w: 1.5 + Math.random() + dmg * 0.2 });
+    const lastP = p.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
+    out.push({
+      path: p, w: 1.5 + Math.random() + d * 0.2,
+      pool: !isNaN(lastP[0]) && Math.random() < 0.6
+        ? { x: lastP[0], y: lastP[1], r: 2 + Math.random() * 3 + d * 0.3 }
+        : undefined,
+    });
     for (let b = 0; b < Math.floor(Math.random() * 2); b++) {
-      const ps = s.split(" L "), si = 1 + Math.floor(Math.random() * (ps.length - 2));
+      const ps = p.split(" L "), si = 1 + Math.floor(Math.random() * (ps.length - 2));
       if (si >= ps.length) continue;
       const cr = ps[si].replace(/^M\s*/, "").split(" ").map(Number);
       if (isNaN(cr[0])) continue;
-      const ba = eA + Math.PI + (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.6);
+      const ba = ea + Math.PI + (Math.random() > 0.5 ? 1 : -1) * (0.3 + Math.random() * 0.6);
       const bl = len * (0.15 + Math.random() * 0.2);
       let bp = `M ${cr[0]} ${cr[1]}`, bpx = cr[0], bpy = cr[1];
       for (let bs = 1; bs <= 3; bs++) {
@@ -44,17 +49,23 @@ function genCracks(dmg: number): { d: string; w: number }[] {
         bpy += Math.sin(ba + (Math.random() - 0.5) * 0.5) * bl / 3;
         bp += ` L ${bpx} ${bpy}`;
       }
-      out.push({ d: bp, w: 0.8 + dmg * 0.1 });
+      const lp = bp.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
+      out.push({
+        path: bp, w: 0.8 + d * 0.1,
+        pool: !isNaN(lp[0]) && Math.random() < 0.5
+          ? { x: lp[0], y: lp[1], r: 1.5 + Math.random() * 2 + d * 0.2 }
+          : undefined,
+      });
     }
   }
-  if (dmg >= 3) {
+  if (d >= 3) {
     for (let i = 0; i < out.length - 1; i++) {
       for (let j = i + 1; j < out.length; j++) {
         if (Math.random() > 0.3) continue;
-        const e1 = out[i].d.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
-        const e2 = out[j].d.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
+        const e1 = out[i].path.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
+        const e2 = out[j].path.split(" L ").pop()!.replace(/^M\s*/, "").split(" ").map(Number);
         if (!isNaN(e1[0]) && !isNaN(e2[0]) && Math.hypot(e1[0] - e2[0], e1[1] - e2[1]) < SIZE * 0.25) {
-          out.push({ d: `M ${e1[0]} ${e1[1]} L ${e2[0]} ${e2[1]}`, w: 0.6 + dmg * 0.1 });
+          out.push({ path: `M ${e1[0]} ${e1[1]} L ${e2[0]} ${e2[1]}`, w: 0.6 + d * 0.1 });
         }
       }
     }
@@ -62,26 +73,29 @@ function genCracks(dmg: number): { d: string; w: number }[] {
   return out;
 }
 
-function initThree(c: HTMLCanvasElement, src: string) {
-  const s = new THREE.Scene();
-  const cam = new THREE.PerspectiveCamera(45, 1, 1, 500);
-  cam.position.set(0, 0, RADIUS * 3.2);
-  cam.lookAt(0, 0, 0);
-  const r = new THREE.WebGLRenderer({ canvas: c, alpha: true, antialias: true });
-  r.setSize(SIZE, SIZE);
-  r.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const g = new THREE.SphereGeometry(RADIUS, 48, 48);
-  const t = new THREE.TextureLoader().load(src);
-  const m = new THREE.MeshBasicMaterial({ map: t });
-  const mesh = new THREE.Mesh(g, m);
-  s.add(mesh);
-  let a = 0;
-  function l() { a += 0.003; mesh.rotation.y = a; r.render(s, cam); requestAnimationFrame(l); }
-  l();
-  return { s, cam, r, mesh, g, m, t };
+/* ─── 7x7 全圆碎片网格 ─── */
+interface Frag { left: number; top: number; w: number; h: number; cp: string; bgX: number; bgY: number; }
+function makeFrags(): Frag[] {
+  const G = 7, cl = SIZE / G, cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2, f: Frag[] = [];
+  for (let R = 0; R < G; R++) {
+    for (let C = 0; C < G; C++) {
+      const x = C * cl, y = R * cl, xe = x + cl, ye = y + cl;
+      if (![[x, y], [xe, y], [x, ye], [xe, ye]].some(([px, py]) => Math.hypot(px - cx, py - cy) <= r)) continue;
+      const j = cl * 0.3;
+      const pts = [
+        `${(Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
+        `${cl + (Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
+        `${cl + (Math.random() - 0.5) * j} ${cl + (Math.random() - 0.5) * j}`,
+        `${(Math.random() - 0.5) * j} ${cl + (Math.random() - 0.5) * j}`,
+      ];
+      if (Math.random() < 0.2) pts.splice(Math.floor(Math.random() * 3) + 1, 0, `${cl * (0.3 + Math.random() * 0.4)} ${(Math.random() - 0.5) * j}`);
+      f.push({ left: x, top: y, w: cl + 2, h: cl + 2, cp: `polygon(${pts.join(", ")})`, bgX: -x, bgY: -y });
+    }
+  }
+  return f;
 }
 
-type Phase = "idle" | "exploding" | "rebuilding";
+type P = "idle" | "exploding" | "rebuilding";
 
 function se(c: HTMLElement, n: number, m = 1) {
   for (let i = 0; i < n; i++) {
@@ -90,71 +104,44 @@ function se(c: HTMLElement, n: number, m = 1) {
     const d = (5 + Math.random() * 30) * m, h = 20 + Math.random() * 30;
     e.style.cssText = `position:absolute;left:63px;top:63px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;background:oklch(${0.55 + Math.random() * 0.25} 0.25 ${h});box-shadow:0 0 ${s * 4}px ${s * 1.5}px oklch(0.7 0.25 ${h}/0.5);`;
     c.appendChild(e);
-    animate(e, {
-      translateX: Math.cos(a) * d,
-      translateY: Math.sin(a) * d - 10 - Math.random() * 15,
-      opacity: [1, 0], scale: [1, 0.2],
-      duration: 500 + Math.random() * 700, ease: "out(2)",
-      onComplete: () => e.remove(),
-    });
+    animate(e, { translateX: Math.cos(a) * d, translateY: Math.sin(a) * d - 10 - Math.random() * 15, opacity: [1, 0], scale: [1, 0.2], duration: 500 + Math.random() * 700, ease: "out(2)", onComplete: () => e.remove() });
   }
 }
-
 function ssw(c: HTMLElement) {
   for (let i = 0; i < 2; i++) {
     const r = document.createElement("div");
     r.style.cssText = `position:absolute;left:50%;top:50%;border-radius:50%;width:0;height:0;pointer-events:none;border:${2 - i}px solid oklch(${0.85 - i * 0.15} 0.3 ${35 + i * 10}/${0.8 - i * 0.3});transform:translate(-50%,-50%);`;
     c.appendChild(r);
-    animate(r, {
-      width: [0, 160 + i * 50], height: [0, 160 + i * 50],
-      opacity: [0.9, 0], duration: 600 + i * 200, delay: i * 80, ease: "out(3)",
-      onComplete: () => r.remove(),
-    });
+    animate(r, { width: [0, 160 + i * 50], height: [0, 160 + i * 50], opacity: [0.9, 0], duration: 600 + i * 200, delay: i * 80, ease: "out(3)", onComplete: () => r.remove() });
   }
 }
-
 function smj(c: HTMLElement, cx: number, cy: number) {
   for (let i = 0; i < 8; i++) {
     const a = (i / 8) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
     for (let l = 0; l < 4; l++) {
       const e = document.createElement("div");
-      const s = (3 + Math.random() * 6) * (1 - l * 0.2);
-      const d = (20 + Math.random() * 40) * (1 + l * 0.5);
-      const h = 25 + Math.random() * 25;
+      const s = (3 + Math.random() * 6) * (1 - l * 0.2), d = (20 + Math.random() * 40) * (1 + l * 0.5), h = 25 + Math.random() * 25;
       e.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;background:oklch(${0.7 - l * 0.1} 0.3 ${h});box-shadow:0 0 ${s * 6}px ${s * 2}px oklch(0.8 0.3 ${h}/0.6);`;
       c.appendChild(e);
-      animate(e, {
-        translateX: Math.cos(a) * d, translateY: Math.sin(a) * d,
-        opacity: [1, 0], scale: [1.5, 0.1],
-        duration: 500 + Math.random() * 600, delay: l * 30 + Math.random() * 50, ease: "out(2)",
-        onComplete: () => e.remove(),
-      });
+      animate(e, { translateX: Math.cos(a) * d, translateY: Math.sin(a) * d, opacity: [1, 0], scale: [1.5, 0.1], duration: 500 + Math.random() * 600, delay: l * 30 + Math.random() * 50, ease: "out(2)", onComplete: () => e.remove() });
     }
   }
 }
-
 function ssm(c: HTMLElement) {
   for (let i = 0; i < 6; i++) {
     const s = document.createElement("div");
     const a = Math.random() * Math.PI * 2, d = 10 + Math.random() * 40, sz = 20 + Math.random() * 40;
     s.style.cssText = `position:absolute;left:${63 - sz / 2}px;top:${63 - sz / 2}px;width:${sz}px;height:${sz}px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,oklch(0.5 0.05 40/0.3),transparent);filter:blur(4px);`;
     c.appendChild(s);
-    animate(s, {
-      translateX: Math.cos(a) * d, translateY: Math.sin(a) * d,
-      scale: [0.5, 2.5], opacity: [0.4, 0],
-      duration: 1200 + Math.random() * 800, ease: "out(3)",
-      onComplete: () => s.remove(),
-    });
+    animate(s, { translateX: Math.cos(a) * d, translateY: Math.sin(a) * d, scale: [0.5, 2.5], opacity: [0.4, 0], duration: 1200 + Math.random() * 800, ease: "out(3)", onComplete: () => s.remove() });
   }
 }
-
 function ff() {
   const f = document.createElement("div");
   f.style.cssText = "position:fixed;inset:0;z-index:9999;background:white;pointer-events:none;";
   document.body.appendChild(f);
   animate(f, { opacity: [0, 1, 0.7, 0], duration: 1000, ease: "out(3)", onComplete: () => f.remove() });
 }
-
 function ps() {
   const h = document.documentElement;
   h.style.transition = "transform 0.8s ease-out";
@@ -164,54 +151,35 @@ function ps() {
     setTimeout(() => { h.style.transform = ""; h.style.transition = ""; }, 300);
   }, 200);
 }
-
 function pp(n: number, ox: number, oy: number) {
   for (let i = 0; i < n; i++) {
     const p = document.createElement("div");
-    const s = 3 + Math.random() * 8, a = Math.random() * Math.PI * 2;
-    const d = 100 + Math.random() * 400, h = 20 + Math.random() * 30;
+    const s = 3 + Math.random() * 8, a = Math.random() * Math.PI * 2, d = 100 + Math.random() * 400, h = 20 + Math.random() * 30;
     p.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;z-index:9998;background:oklch(${0.6 + Math.random() * 0.3} 0.25 ${h});box-shadow:0 0 ${s * 5}px ${s * 2}px oklch(0.8 0.3 ${h}/0.4);`;
     document.body.appendChild(p);
-    animate(p, {
-      translateX: Math.cos(a) * d, translateY: Math.sin(a) * d - 20,
-      opacity: [1, 0], scale: [1.5, 0],
-      duration: 800 + Math.random() * 1000, ease: "out(2)",
-      onComplete: () => p.remove(),
-    });
+    animate(p, { translateX: Math.cos(a) * d, translateY: Math.sin(a) * d - 20, opacity: [1, 0], scale: [1.5, 0], duration: 800 + Math.random() * 1000, ease: "out(2)", onComplete: () => p.remove() });
   }
 }
-
 function psw(ox: number, oy: number) {
   for (let i = 0; i < 3; i++) {
     const r = document.createElement("div");
     r.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:0;height:0;pointer-events:none;z-index:9997;border:${3 - i}px solid oklch(${0.85 - i * 0.15} 0.3 ${35 + i * 10}/${0.7 - i * 0.2});transform:translate(-50%,-50%);`;
     document.body.appendChild(r);
-    animate(r, {
-      width: [0, 600 + i * 300], height: [0, 600 + i * 300],
-      opacity: [0.8, 0], duration: 1000 + i * 300, delay: i * 120, ease: "out(3)",
-      onComplete: () => r.remove(),
-    });
+    animate(r, { width: [0, 600 + i * 300], height: [0, 600 + i * 300], opacity: [0.8, 0], duration: 1000 + i * 300, delay: i * 120, ease: "out(3)", onComplete: () => r.remove() });
   }
 }
 
 export default function AvatarWithJelly() {
   const [dmg, setDmg] = useState(0);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const br = useRef<HTMLDivElement>(null), fr = useRef<HTMLDivElement>(null);
-  const ar = useRef<HTMLDivElement>(null), sr = useRef<HTMLDivElement>(null);
-  const flr = useRef<HTMLDivElement>(null), fxr = useRef<HTMLDivElement>(null);
-  const cr = useRef<HTMLCanvasElement>(null);
-  const tRef = useRef<ReturnType<typeof initThree> | null>(null);
-  const crackData = useMemo(() => dmg > 0 ? genCracks(dmg) : [], [dmg]);
+  const [phase, setPhase] = useState<P>("idle");
+  const [detached, setDet] = useState<Set<number>>(new Set());
+  const br = useRef<HTMLDivElement>(null), fr = useRef<HTMLDivElement>(null), ar = useRef<HTMLDivElement>(null);
+  const sr = useRef<HTMLDivElement>(null), flr = useRef<HTMLDivElement>(null), fxr = useRef<HTMLDivElement>(null);
+  const fragr = useRef<(HTMLDivElement | null)[]>([]);
+  const frags = useMemo(makeFrags, []);
+  const cd = useMemo(() => dmg > 0 ? genCracks(dmg) : [], [dmg]);
 
-  useEffect(() => {
-    if (!cr.current) return;
-    const t = initThree(cr.current, import.meta.env.BASE_URL + "avatar.png");
-    tRef.current = t;
-    return () => { t.r.dispose(); t.g.dispose(); t.m.dispose(); t.t.dispose(); };
-  }, []);
-
-  const handleClick = useCallback(() => {
+  const hc = useCallback(() => {
     if (phase !== "idle") return;
     const c = ar.current; if (!c) return;
     const n = dmg + 1; setDmg(n);
@@ -223,8 +191,19 @@ export default function AvatarWithJelly() {
       duration: 300 + n * 20, ease: "out(3)",
     });
     se(c, 2 + n * 2);
+    // 累积松脱碎片
+    const nd = new Set(detached);
+    const td = Math.min(frags.length, 2 + n * 3);
+    while (nd.size < td) { const idx = Math.floor(Math.random() * frags.length); nd.add(idx); }
+    setDet(nd);
+    nd.forEach(idx => {
+      const el = fragr.current[idx]; if (!el) return;
+      const a = Math.random() * Math.PI * 2;
+      el.style.display = "block";
+      animate(el, { translateX: Math.cos(a) * (2 + n), translateY: Math.sin(a) * (2 + n), rotate: (Math.random() - 0.5) * 20, opacity: [1, 0.5], duration: 500, ease: "out(2)" });
+    });
     if (n >= MAX_DAMAGE) setPhase("exploding");
-  }, [dmg, phase]);
+  }, [dmg, phase, detached, frags]);
 
   useEffect(() => {
     if (phase !== "exploding") return;
@@ -236,103 +215,39 @@ export default function AvatarWithJelly() {
     for (let w = 0; w < 3; w++) setTimeout(() => { if (fx) smj(fx, 63 + (Math.random() - 0.5) * 20, 63 + (Math.random() - 0.5) * 20); }, 80 + w * 120);
     for (let i = 0; i < 4; i++) setTimeout(() => se(c, 12, 1.5), 200 + i * 80);
     setTimeout(() => pp(20, pcx, pcy), 400);
-
-    const three = tRef.current; if (!three) return;
-    const g = three.g, pos = g.attributes.position, idx = g.index!;
-    const vc = idx.count;
-    const groups: number[][] = [], assigned = new Uint8Array(vc / 3);
-    [12, 6, 3].forEach((gs, i) => {
-      const gc = i === 0 ? 8 : i === 1 ? 15 : 30;
-      for (let g2 = 0; g2 < gc; g2++) {
-        let seed = -1;
-        for (let j = 0; j < vc / 3; j++) { if (!assigned[j]) { seed = j; break; } }
-        if (seed === -1) break;
-        const grp: number[] = [], q = [seed], vis = new Set<number>();
-        while (q.length > 0 && grp.length < gs) {
-          const fi = q.shift()!;
-          if (vis.has(fi)) continue;
-          vis.add(fi); assigned[fi] = 1; grp.push(fi);
-          const a0 = idx.getX(fi * 3), a1 = idx.getX(fi * 3 + 1), a2 = idx.getX(fi * 3 + 2);
-          for (let j = 0; j < vc / 3; j++) {
-            if (assigned[j]) continue;
-            const b0 = idx.getX(j * 3), b1 = idx.getX(j * 3 + 1), b2 = idx.getX(j * 3 + 2);
-            if ([a0, a1, a2].filter(v => v === b0 || v === b1 || v === b2).length >= 2) q.push(j);
-          }
-        }
-        if (grp.length > 0) groups.push(grp);
-      }
+    // 全部碎片爆炸散开
+    fragr.current.forEach((el, i) => {
+      if (!el) return;
+      const a = Math.random() * Math.PI * 2;
+      el.style.display = "block";
+      animate(el, {
+        translateX: Math.cos(a) * (30 + Math.random() * 200),
+        translateY: Math.sin(a) * (30 + Math.random() * 200),
+        rotate: (Math.random() - 0.5) * 1000,
+        opacity: [1, 0.3],
+        duration: 600 + Math.random() * 700, ease: "out(3)", delay: Math.random() * 80,
+      });
     });
-    for (let i = 0; i < vc / 3; i++) if (!assigned[i]) groups.push([i]);
-
-    three.s.remove(three.mesh);
-    const tex = three.t;
-    const frags3D: { mesh: THREE.Mesh; vel: THREE.Vector3; rot: THREE.Vector3 }[] = [];
-    const uvA = g.attributes.uv;
-
-    groups.forEach(fids => {
-      const verts: number[] = [], uvs: number[] = [];
-      fids.forEach(fi => {
-        for (let v = 0; v < 3; v++) {
-          const vi = idx.getX(fi * 3 + v);
-          verts.push(pos.getX(vi), pos.getY(vi), pos.getZ(vi));
-          uvs.push(uvA.getX(vi), uvA.getY(vi));
-        }
-      });
-      const fg = new THREE.BufferGeometry();
-      fg.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
-      fg.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
-      fg.computeVertexNormals();
-      const fm = new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide });
-      const fmesh = new THREE.Mesh(fg, fm);
-      const cc = new THREE.Vector3();
-      for (let v = 0; v < verts.length; v += 3) {
-        cc.x += verts[v]; cc.y += verts[v + 1]; cc.z += verts[v + 2];
-      }
-      cc.divideScalar(verts.length / 3);
-      frags3D.push({
-        mesh: fmesh,
-        vel: cc.clone().normalize().multiplyScalar(1.5 + Math.random() * 3),
-        rot: new THREE.Vector3((Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1, (Math.random() - 0.5) * 0.1),
-      });
-      three.s.add(fmesh);
-    });
-
-    const st = Date.now(), dur = 2000;
-    function af() {
-      const t = Math.min(1, (Date.now() - st) / dur);
-      const et = 1 - Math.pow(1 - t, 3);
-      frags3D.forEach(f => {
-        f.mesh.position.copy(f.vel.clone().multiplyScalar(et * RADIUS * 2.5));
-        f.mesh.rotation.x += f.rot.x;
-        f.mesh.rotation.y += f.rot.y;
-        f.mesh.rotation.z += f.rot.z;
-      });
-      if (t < 1) requestAnimationFrame(af);
-    }
-    af();
     setTimeout(() => setPhase("rebuilding"), 2200);
   }, [phase]);
 
   useEffect(() => {
     if (phase !== "rebuilding") return;
-    const three = tRef.current; if (!three) return;
-    for (const child of three.s.children.slice()) {
-      if (child !== three.mesh) {
-        three.s.remove(child);
-        if (child instanceof THREE.Mesh) {
-          child.geometry.dispose();
-          (child.material as THREE.Material).dispose();
-        }
-      }
-    }
-    const ng = new THREE.SphereGeometry(RADIUS, 48, 48);
-    three.mesh.geometry.dispose();
-    three.mesh.geometry = ng;
-    three.s.add(three.mesh);
+    const c = ar.current, fx = fxr.current; if (!c) return;
+    fragr.current.forEach(el => {
+      if (!el) return;
+      animate(el, {
+        translateX: 0, translateY: 0, rotate: 0,
+        opacity: 1,
+        duration: 800 + Math.random() * 400, ease: "outBack(1.7)", delay: Math.random() * 150,
+        onComplete: () => { el.style.display = ""; },
+      });
+    });
     setTimeout(() => {
       if (flr.current) animate(flr.current, { opacity: [0, 0.3, 0], duration: 500, ease: "out(3)" });
-      setDmg(0); setPhase("idle");
-    }, 800);
+      if (fx) { ssw(fx); for (let i = 0; i < 3; i++) setTimeout(() => se(c, 4), i * 80); }
+      setDmg(0); setDet(new Set()); setPhase("idle");
+    }, 1200);
   }, [phase]);
 
   useEffect(() => {
@@ -397,35 +312,76 @@ export default function AvatarWithJelly() {
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
       <div ref={br} className="absolute inset-0 z-0" />
       <div ref={fxr} className="absolute inset-0 z-10 pointer-events-none" />
-      <div ref={ar} onClick={handleClick}
+      <div ref={ar} onClick={hc}
         className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-visible"
         style={{
           width: SIZE, height: SIZE, zIndex: 1, boxShadow: bs,
           animation: phase === "idle" && dmg === 0 ? "breathe-amber 3s ease-in-out infinite" : "none",
         }}
         role="img" aria-label="avatar">
-        <canvas ref={cr} width={SIZE} height={SIZE} className="rounded-full pointer-events-none"
-          style={{ width: SIZE, height: SIZE, clipPath: "circle(50%)", zIndex: 2 }} />
+
+        {/* 熔岩底层 */}
         {dmg > 0 && phase === "idle" && (
-          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full pointer-events-none"
-            style={{ clipPath: "circle(50%)", zIndex: 3 }}>
-            {crackData.map((c, i) => (
-              <path key={i} d={c.d} fill="none"
-                stroke={`oklch(0.75 ${0.2 + gi * 0.15} ${40 - gi * 20} / ${0.3 + gi * 0.4})`}
-                strokeWidth={c.w + 3} strokeLinecap="round" strokeLinejoin="round"
-                style={{ filter: "blur(3px)" }} />
+          <div className="absolute inset-0 rounded-full pointer-events-none" style={{
+            clipPath: "circle(50%)", zIndex: 2,
+            background: `radial-gradient(circle at 50% 50%, oklch(${0.75 + gi * 0.15} ${0.25 + gi * 0.1} ${45 - gi * 20}/${0.2 + gi * 0.3}) 0%, transparent 70%)`,
+          }}>
+            {cd.filter(c => c.pool).map((c, i) => (
+              <div key={i} style={{
+                position: "absolute",
+                left: c.pool!.x - c.pool!.r * 3, top: c.pool!.y - c.pool!.r * 3,
+                width: c.pool!.r * 6, height: c.pool!.r * 6, borderRadius: "50%",
+                background: `oklch(0.9 0.25 ${50 - gi * 15}/${0.6 + gi * 0.3})`,
+                filter: "blur(4px)", opacity: 0.6 + gi * 0.3,
+              }} />
             ))}
-            {crackData.map((c, i) => (
-              <path key={`i-${i}`} d={c.d} fill="none"
-                stroke={`oklch(0.95 0.15 ${50 - gi * 15} / ${0.5 + gi * 0.4})`}
-                strokeWidth={c.w} strokeLinecap="round" strokeLinejoin="round" />
-            ))}
-          </svg>
+          </div>
         )}
+
+        {/* SVG Mask + 图片 */}
+        <div className="absolute inset-0 rounded-full overflow-hidden pointer-events-none transition-opacity duration-300"
+          style={{ clipPath: "circle(50%)", zIndex: 3, opacity: phase === "idle" ? Math.max(0, 1 - dmg * 0.18) : 0 }}>
+          {dmg > 0 && phase === "idle" ? (
+            <>
+              <svg className="absolute inset-0 h-full w-full" viewBox={`0 0 ${SIZE} ${SIZE}`} style={{ zIndex: 1 }}>
+                <defs>
+                  <mask id={`m-${dmg}`}>
+                    <rect width={SIZE} height={SIZE} fill="white" />
+                    {cd.map((c, i) => (
+                      <path key={i} d={c.path} fill="none" stroke="black" strokeWidth={c.w * 2} strokeLinecap="round" strokeLinejoin="round" />
+                    ))}
+                  </mask>
+                </defs>
+              </svg>
+              <div className="absolute inset-0" style={{ mask: `url(#m-${dmg})`, WebkitMask: `url(#m-${dmg})` }}>
+                <img src={import.meta.env.BASE_URL + "avatar.png"} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} />
+              </div>
+            </>
+          ) : (
+            <img src={import.meta.env.BASE_URL + "avatar.png"} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} />
+          )}
+        </div>
+
+        {/* 碎片层 */}
+        {(phase !== "idle" || dmg > 0) && (
+          <div className="absolute inset-0" style={{ perspective: "400px", zIndex: 2 }}>
+            {frags.map((f, i) => (
+              <div key={i} ref={(el) => { fragr.current[i] = el; }} className="absolute"
+                style={{
+                  left: f.left, top: f.top, width: f.w, height: f.h,
+                  clipPath: f.cp,
+                  backgroundImage: `url(${import.meta.env.BASE_URL}avatar.png)`,
+                  backgroundSize: `${SIZE}px ${SIZE}px`,
+                  backgroundPosition: `${f.bgX}px ${f.bgY}px`,
+                }} />
+            ))}
+          </div>
+        )}
+
         {dmg > 0 && phase === "idle" && (
           <div className="absolute inset-0 rounded-full pointer-events-none" style={{
             zIndex: 4,
-            background: `radial-gradient(circle at 50% 50%, oklch(${0.7 + gi * 0.2} 0.3 ${55 - gi * 30} / ${0.1 + gi * 0.35}) 0%, transparent ${55 - gi * 18}%)`,
+            background: `radial-gradient(circle at 50% 50%, oklch(${0.7 + gi * 0.2} 0.3 ${55 - gi * 30}/${0.1 + gi * 0.35}) 0%, transparent ${55 - gi * 18}%)`,
             mixBlendMode: "screen",
           }} />
         )}
