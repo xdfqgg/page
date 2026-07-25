@@ -216,7 +216,7 @@ export default function AvatarWithJelly() {
     for (let i = 0; i < 4; i++) setTimeout(() => se(c, 12, 1.5), 200 + i * 80);
     setTimeout(() => pp(20, pcx, pcy), 400);
     // 全部碎片爆炸散开
-    fragr.current.forEach((el, i) => {
+    fragr.current.forEach((el) => {
       if (!el) return;
       const a = Math.random() * Math.PI * 2;
       el.style.display = "block";
