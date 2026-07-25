@@ -11,7 +11,7 @@ const RINGS = [
   { rx: 84, ry: 40, speed: -0.45, color: "oklch(0.68 0.18 50 / 0.5)", count: 8, size: 2.5, ring: "oklch(0.68 0.18 50 / 0.1)" },
 ];
 
-/* ─── 全覆盖不规则碎片（7×7 网格 + 随机变形） ─── */
+/* ─── 全覆盖不规则碎片 ─── */
 interface Frag {
   left: number; top: number; w: number; h: number;
   clipPath: string; bgX: number; bgY: number;
@@ -23,96 +23,87 @@ function makeFrags(): Frag[] {
   const cell = SIZE / G;
   const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2;
   const frags: Frag[] = [];
-
-  for (let row = 0; row < G; row++) {
+  for (let row = 0; row < G; row++)
     for (let col = 0; col < G; col++) {
-      const x = col * cell, y = row * cell;
-      // 包围盒检测圆形碰撞
-      const ex = x + cell, ey = y + cell;
-      const near = Math.hypot(x - cx, y - cy) <= r ||
-                    Math.hypot(ex - cx, y - cy) <= r ||
-                    Math.hypot(x - cx, ey - cy) <= r ||
-                    Math.hypot(ex - cx, ey - cy) <= r;
-      if (!near) continue;
-
+      const x = col * cell, y = row * cell, ex = x + cell, ey = y + cell;
+      if (![[x,y],[ex,y],[x,ey],[ex,ey]].some(([px,py]) => Math.hypot(px-cx, py-cy) <= r)) continue;
       const j = cell * 0.3;
-      const pts = [
-        `${(Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
-        `${cell + (Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
-        `${cell + (Math.random() - 0.5) * j} ${cell + (Math.random() - 0.5) * j}`,
-        `${(Math.random() - 0.5) * j} ${cell + (Math.random() - 0.5) * j}`,
-      ];
-      // 可选五边形（20%概率）
-      if (Math.random() < 0.2) {
-        pts.splice(Math.floor(Math.random() * 3) + 1, 0,
-          `${cell * (0.3 + Math.random() * 0.4)} ${(Math.random() - 0.5) * j}`);
-      }
-
-      const cxx = x + cell / 2 + (Math.random() - 0.5) * j;
-      const cyy = y + cell / 2 + (Math.random() - 0.5) * j;
-
-      frags.push({
-        left: x, top: y, w: cell + 2, h: cell + 2,
-        clipPath: `polygon(${pts.join(", ")})`,
-        bgX: -x, bgY: -y,
-        cx: cxx, cy: cyy,
-        dist: Math.hypot(cxx - cx, cyy - cy),
-        angle: Math.atan2(cyy - cy, cxx - cx),
-      });
+      const pts = [`${(Math.random()-.5)*j} ${(Math.random()-.5)*j}`,
+        `${cell+(Math.random()-.5)*j} ${(Math.random()-.5)*j}`,
+        `${cell+(Math.random()-.5)*j} ${cell+(Math.random()-.5)*j}`,
+        `${(Math.random()-.5)*j} ${cell+(Math.random()-.5)*j}`];
+      if (Math.random() < 0.2) pts.splice(Math.floor(Math.random()*3)+1, 0, `${cell*(.3+Math.random()*.4)} ${(Math.random()-.5)*j}`);
+      const cxx = x + cell/2 + (Math.random()-.5)*j, cyy = y + cell/2 + (Math.random()-.5)*j;
+      frags.push({ left:x, top:y, w:cell+2, h:cell+2, clipPath:`polygon(${pts.join(", ")})`, bgX:-x, bgY:-y, cx:cxx, cy:cyy, dist:Math.hypot(cxx-cx,cyy-cy), angle:Math.atan2(cyy-cy,cxx-cx) });
     }
-  }
   return frags;
 }
 
-/* ─── 裂纹（中心放射 + 多段振动 + 分支） ─── */
-function genCracks(dmg: number): { d: string; w: number }[] {
+/* ─── 行星爆炸裂纹（宽裂隙 + 熔岩池） ─── */
+interface CrackOut { d: string; w: number; }
+interface PoolOut { cx: number; cy: number; r: number; }
+
+function genCracks(dmg: number): { paths: CrackOut[]; pools: PoolOut[] } {
   const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2;
-  const out: { d: string; w: number }[] = [];
-  const n = 4 + dmg * 2;
+  const paths: CrackOut[] = [];
+  const pools: PoolOut[] = [];
 
-  for (let i = 0; i < n; i++) {
-    const baseA = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-    const len = r * (0.4 + Math.random() * 0.5);
-    let pts = `M ${cx} ${cy}`;
-    let px = cx, py = cy;
-    const steps = 5 + Math.floor(Math.random() * 4);
+  // 多组主裂隙
+  for (let g = 0; g < 1 + Math.floor(dmg / 2); g++) {
+    const originX = cx + (Math.random() - 0.5) * r * 0.3;
+    const originY = cy + (Math.random() - 0.5) * r * 0.3;
+    const n = 3 + dmg + Math.floor(Math.random() * 2);
 
-    for (let s = 1; s <= steps; s++) {
-      const a = baseA + (Math.random() - 0.5) * 1.3;
-      const seg = len / steps * (0.4 + Math.random() * 0.8);
-      px += Math.cos(a) * seg + (Math.random() - 0.5) * 3;
-      py += Math.sin(a) * seg + (Math.random() - 0.5) * 3;
-      const d = Math.hypot(px - cx, py - cy);
-      if (d > r * 0.88) {
-        const sc = (r * 0.88) / d;
-        px = cx + (px - cx) * sc; py = cy + (py - cy) * sc;
+    for (let i = 0; i < n; i++) {
+      const baseA = (i / n) * Math.PI * 2 + (Math.random() - 0.5) * 0.7;
+      const len = r * (0.25 + Math.random() * 0.55);
+      let pts = `M ${originX} ${originY}`;
+      let px = originX, py = originY;
+      const steps = 4 + Math.floor(Math.random() * 4);
+
+      for (let s = 1; s <= steps; s++) {
+        const a = baseA + (Math.random() - 0.5) * 1.1;
+        const seg = len / steps * (0.4 + Math.random() * 0.8);
+        px += Math.cos(a) * seg; py += Math.sin(a) * seg;
+        const d = Math.hypot(px - cx, py - cy);
+        if (d > r * 0.85) { const sc = (r * 0.85) / d; px = cx + (px - cx) * sc; py = cy + (py - cy) * sc; }
+        pts += ` L ${px} ${py}`;
       }
-      pts += ` L ${px} ${py}`;
-    }
-    out.push({ d: pts, w: 1.5 + Math.random() * 1.5 + dmg * 0.25 });
+      // 主裂隙 — 宽
+      paths.push({ d: pts, w: 2 + Math.random() * 2 + dmg * 0.4 });
 
-    // 分支 ~45°
-    for (let b = 0; b < Math.floor(Math.random() * 2.5); b++) {
-      const parts = pts.split(" L ");
-      const si = 1 + Math.floor(Math.random() * (parts.length - 2));
-      if (si >= parts.length) continue;
-      const coords = parts[si].replace(/^M\s*/, "").split(" ").map(Number);
-      const sx = coords[0], sy = coords[1];
-      if (isNaN(sx)) continue;
-      const ba = baseA + (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.3);
-      const bl = len * (0.15 + Math.random() * 0.2);
-      let bp = `M ${sx} ${sy}`;
-      let bpx = sx, bpy = sy;
-      for (let bs = 1; bs <= 3; bs++) {
-        const ba2 = ba + (Math.random() - 0.5) * 0.7;
-        bpx += Math.cos(ba2) * bl / 3;
-        bpy += Math.sin(ba2) * bl / 3;
-        bp += ` L ${bpx} ${bpy}`;
+      // 分支 — 窄
+      for (let b = 0; b < Math.floor(Math.random() * 2.5); b++) {
+        const parts = pts.split(" L ");
+        const si = 1 + Math.floor(Math.random() * (parts.length - 2));
+        if (si >= parts.length) continue;
+        const coords = parts[si].replace(/^M\s*/, "").split(" ").map(Number);
+        if (isNaN(coords[0])) continue;
+        const ba = baseA + (Math.random() > 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.5);
+        const bl = len * (0.15 + Math.random() * 0.25);
+        let bp = `M ${coords[0]} ${coords[1]}`;
+        let bpx = coords[0], bpy = coords[1];
+        for (let bs = 1; bs <= 3; bs++) {
+          bpx += Math.cos(ba + (Math.random()-.5)*0.6) * bl / 3;
+          bpy += Math.sin(ba + (Math.random()-.5)*0.6) * bl / 3;
+          bp += ` L ${bpx} ${bpy}`;
+        }
+        paths.push({ d: bp, w: 0.8 + Math.random() * 0.8 + dmg * 0.15 });
+
+        // 分支末端 => 熔岩池
+        const lastSeg = bp.split(" L ").pop()!;
+        const [ex, ey] = lastSeg.replace(/^M\s*/, "").split(" ").map(Number);
+        if (!isNaN(ex)) pools.push({ cx: ex, cy: ey, r: 2 + Math.random() * 3 + dmg * 0.3 });
       }
-      out.push({ d: bp, w: 0.8 + Math.random() * 0.5 + dmg * 0.1 });
+
+      // 主裂隙末端 => 熔岩池
+      const lastP = pts.split(" L ").pop()!;
+      const [pex, pey] = lastP.replace(/^M\s*/, "").split(" ").map(Number);
+      if (!isNaN(pex) && Math.random() < 0.7) pools.push({ cx: pex, cy: pey, r: 3 + Math.random() * 4 + dmg * 0.4 });
     }
   }
-  return out;
+
+  return { paths, pools };
 }
 
 type Phase = "idle" | "exploding" | "rebuilding";
@@ -120,17 +111,10 @@ type Phase = "idle" | "exploding" | "rebuilding";
 function spawnEmbers(c: HTMLElement, n: number, m = 1) {
   for (let i = 0; i < n; i++) {
     const e = document.createElement("div");
-    const s = (2 + Math.random() * 4) * m;
-    const a = Math.random() * Math.PI * 2;
-    const d = (5 + Math.random() * 30) * m;
-    const h = 20 + Math.random() * 30;
+    const s = (2+Math.random()*4)*m, a = Math.random()*Math.PI*2, d = (5+Math.random()*30)*m, h = 20+Math.random()*30;
     e.style.cssText = `position:absolute;left:63px;top:63px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;background:oklch(${0.55+Math.random()*0.25} 0.25 ${h});box-shadow:0 0 ${s*4}px ${s*1.5}px oklch(0.7 0.25 ${h}/.5);`;
     c.appendChild(e);
-    animate(e, {
-      translateX: Math.cos(a)*d, translateY: Math.sin(a)*d-10-Math.random()*15,
-      opacity: [1,0], scale: [1,0.2], duration: 400+Math.random()*600,
-      ease: "out(2)", onComplete: () => e.remove(),
-    });
+    animate(e, { translateX: Math.cos(a)*d, translateY: Math.sin(a)*d-10-Math.random()*15, opacity:[1,0], scale:[1,0.2], duration:600+Math.random()*800, ease:"out(2)", onComplete:() => e.remove() });
   }
 }
 
@@ -139,19 +123,19 @@ function spawnSw(c: HTMLElement) {
     const r = document.createElement("div");
     r.style.cssText = `position:absolute;left:50%;top:50%;border-radius:50%;width:0;height:0;pointer-events:none;border:${2-i}px solid oklch(${0.85-i*0.15} 0.3 ${35+i*10}/${0.8-i*0.3});transform:translate(-50%,-50%);`;
     c.appendChild(r);
-    animate(r, { width: [0,160+i*50], height: [0,160+i*50], opacity: [0.9,0], duration: 400+i*150, delay: i*60, ease: "out(3)", onComplete: () => r.remove() });
+    animate(r, { width:[0,160+i*50], height:[0,160+i*50], opacity:[0.9,0], duration:600+i*200, delay:i*80, ease:"out(3)", onComplete:() => r.remove() });
   }
 }
 
 function spawnMj(c: HTMLElement, cx: number, cy: number) {
   for (let i = 0; i < 8; i++) {
-    const a = (i/8)*Math.PI*2 + (Math.random()-.5)*.4;
+    const a = (i/8)*Math.PI*2+(Math.random()-.5)*.4;
     for (let l = 0; l < 4; l++) {
       const e = document.createElement("div");
       const s = (3+Math.random()*6)*(1-l*.2), d = (20+Math.random()*40)*(1+l*.5), h = 25+Math.random()*25;
       e.style.cssText = `position:absolute;left:${cx}px;top:${cy}px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;background:oklch(${0.7-l*.1} 0.3 ${h});box-shadow:0 0 ${s*6}px ${s*2}px oklch(0.8 0.3 ${h}/.6);`;
       c.appendChild(e);
-      animate(e, { translateX: Math.cos(a)*d, translateY: Math.sin(a)*d, opacity: [1,0], scale: [1.5,.1], duration: 300+Math.random()*400, delay: l*30+Math.random()*50, ease: "out(2)", onComplete: () => e.remove() });
+      animate(e, { translateX:Math.cos(a)*d, translateY:Math.sin(a)*d, opacity:[1,0], scale:[1.5,.1], duration:500+Math.random()*600, delay:l*30+Math.random()*50, ease:"out(2)", onComplete:() => e.remove() });
     }
   }
 }
@@ -162,7 +146,7 @@ function spawnSm(c: HTMLElement) {
     const a = Math.random()*Math.PI*2, d = 10+Math.random()*40, sz = 20+Math.random()*40;
     s.style.cssText = `position:absolute;left:${63-sz/2}px;top:${63-sz/2}px;width:${sz}px;height:${sz}px;border-radius:50%;pointer-events:none;background:radial-gradient(circle,oklch(.5 .05 40/.3),transparent);filter:blur(4px);`;
     c.appendChild(s);
-    animate(s, { translateX: Math.cos(a)*d, translateY: Math.sin(a)*d, scale: [0.5, 2.5], opacity: [0.4, 0], duration: 800+Math.random()*600, ease: "out(3)", onComplete: () => s.remove() });
+    animate(s, { translateX:Math.cos(a)*d, translateY:Math.sin(a)*d, scale:[0.5,2.5], opacity:[0.4,0], duration:1200+Math.random()*800, ease:"out(3)", onComplete:() => s.remove() });
   }
 }
 
@@ -170,14 +154,14 @@ function ff() {
   const f = document.createElement("div");
   f.style.cssText = "position:fixed;inset:0;z-index:9999;background:white;pointer-events:none;";
   document.body.appendChild(f);
-  animate(f, { opacity: [0,1,0.7,0], duration: 600, ease: "out(3)", onComplete: () => f.remove() });
+  animate(f, { opacity:[0,1,0.7,0], duration:1000, ease:"out(3)", onComplete:() => f.remove() });
 }
 
 function ps() {
   const h = document.documentElement;
-  h.style.transition = "transform .6s ease-out";
-  h.style.transform = `translate(${(Math.random()-.5)*12}px,${(Math.random()-.5)*12}px)`;
-  setTimeout(() => { h.style.transform = `translate(${(Math.random()-.5)*8}px,${(Math.random()-.5)*8}px)`; setTimeout(() => { h.style.transform = ""; h.style.transition = ""; }, 200); }, 100);
+  h.style.transition = "transform .8s ease-out";
+  h.style.transform = `translate(${(Math.random()-.5)*15}px,${(Math.random()-.5)*15}px)`;
+  setTimeout(() => { h.style.transform = `translate(${(Math.random()-.5)*10}px,${(Math.random()-.5)*10}px)`; setTimeout(() => { h.style.transform=""; h.style.transition=""; }, 300); }, 200);
 }
 
 function pp(n: number, ox: number, oy: number) {
@@ -186,7 +170,7 @@ function pp(n: number, ox: number, oy: number) {
     const s = 3+Math.random()*8, a = Math.random()*Math.PI*2, d = 100+Math.random()*400, h = 20+Math.random()*30;
     p.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;z-index:9998;background:oklch(${0.6+Math.random()*.3} 0.25 ${h});box-shadow:0 0 ${s*5}px ${s*2}px oklch(0.8 0.3 ${h}/.4);`;
     document.body.appendChild(p);
-    animate(p, { translateX: Math.cos(a)*d, translateY: Math.sin(a)*d-20, opacity: [1,0], scale: [1.5,0], duration: 600+Math.random()*800, ease: "out(2)", onComplete: () => p.remove() });
+    animate(p, { translateX:Math.cos(a)*d, translateY:Math.sin(a)*d-20, opacity:[1,0], scale:[1.5,0], duration:800+Math.random()*1000, ease:"out(2)", onComplete:() => p.remove() });
   }
 }
 
@@ -195,7 +179,7 @@ function psw(ox: number, oy: number) {
     const r = document.createElement("div");
     r.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:0;height:0;pointer-events:none;z-index:9997;border:${3-i}px solid oklch(${0.85-i*.15} 0.3 ${35+i*10}/${0.7-i*.2});transform:translate(-50%,-50%);`;
     document.body.appendChild(r);
-    animate(r, { width: [0,600+i*300], height: [0,600+i*300], opacity: [0.8,0], duration: 700+i*200, delay: i*100, ease: "out(3)", onComplete: () => r.remove() });
+    animate(r, { width:[0,600+i*300], height:[0,600+i*300], opacity:[0.8,0], duration:1000+i*300, delay:i*120, ease:"out(3)", onComplete:() => r.remove() });
   }
 }
 
@@ -211,103 +195,73 @@ export default function AvatarWithJelly() {
   const fragsRef = useRef<(HTMLDivElement | null)[]>([]);
   const fragments = useMemo(makeFrags, []);
 
-  // ─── 爆炸动画：等 DOM 渲染完再执行 ───
   useEffect(() => {
     if (phase !== "exploding") return;
     const container = avatarRef.current;
     const fx = fxRef.current;
     if (!container) return;
-
     const rect = container.getBoundingClientRect();
-    const pcx = rect.left + rect.width / 2;
-    const pcy = rect.top + rect.height / 2;
-
+    const pcx = rect.left + rect.width / 2, pcy = rect.top + rect.height / 2;
     ff(); ps(); psw(pcx, pcy); pp(30, pcx, pcy);
-
-    if (flashRef.current) animate(flashRef.current, { opacity: [0,1,0.7,0], duration: 500, ease: "out(3)" });
+    if (flashRef.current) animate(flashRef.current, { opacity:[0,1,0.7,0], duration:800, ease:"out(3)" });
     if (fx) { spawnSw(fx); spawnSm(fx); }
-
     animate(container, {
       translateX: [0,(Math.random()-.5)*18,(Math.random()-.5)*12,0],
       translateY: [0,(Math.random()-.5)*18,(Math.random()-.5)*12,0],
-      scale: [1,1.1,0.95,1], duration: 700, ease: "out(2)",
+      scale: [1,1.1,0.95,1], duration:1000, ease:"out(2)",
     });
-
-    // 碎片飞散（此时 DOM 已就绪）
     fragsRef.current.forEach((el, i) => {
       if (!el) return;
-      const f = fragments[i];
-      if (!f) return;
+      const f = fragments[i]; if (!f) return;
       const fd = 30 + Math.random() * 200 + f.dist;
       const fa = f.angle + (Math.random() - 0.5) * 0.5;
       el.style.display = "block";
       animate(el, {
-        translateX: Math.cos(fa) * fd,
-        translateY: Math.sin(fa) * fd,
-        rotate: (Math.random() - 0.5) * 1000,
-        rotateX: (Math.random() - 0.5) * 150,
-        rotateY: (Math.random() - 0.5) * 150,
-        opacity: [1, 0.3],
-        duration: 350 + Math.random() * 500,
-        ease: "out(3)", delay: Math.random() * 80,
+        translateX: Math.cos(fa) * fd, translateY: Math.sin(fa) * fd,
+        rotate: (Math.random() - 0.5) * 1000, rotateX: (Math.random() - 0.5) * 150, rotateY: (Math.random() - 0.5) * 150,
+        opacity: [1, 0.3], duration: 600 + Math.random() * 700, ease: "out(3)", delay: Math.random() * 100,
       });
     });
-
-    for (let w = 0; w < 3; w++) {
-      setTimeout(() => { if (fx) spawnMj(fx, 63+(Math.random()-.5)*20, 63+(Math.random()-.5)*20); }, 50+w*80);
-    }
-    for (let i = 0; i < 4; i++) {
-      setTimeout(() => spawnEmbers(container, 12, 1.5), 150+i*60);
-    }
-    setTimeout(() => pp(20, pcx, pcy), 300);
-    setTimeout(() => setPhase("rebuilding"), 1400);
+    for (let w = 0; w < 3; w++) setTimeout(() => { if (fx) spawnMj(fx, 63+(Math.random()-.5)*20, 63+(Math.random()-.5)*20); }, 80+w*120);
+    for (let i = 0; i < 4; i++) setTimeout(() => spawnEmbers(container, 12, 1.5), 200+i*80);
+    setTimeout(() => pp(20, pcx, pcy), 400);
+    setTimeout(() => setPhase("rebuilding"), 2200);
   }, [phase, fragments]);
 
-  // ─── 重建动画 ───
   useEffect(() => {
     if (phase !== "rebuilding") return;
     const container = avatarRef.current;
     const fx = fxRef.current;
     if (!container) return;
-
     fragsRef.current.forEach((el) => {
       if (!el) return;
       animate(el, {
         translateX: 0, translateY: 0, rotate: 0, rotateX: 0, rotateY: 0, opacity: 1,
-        duration: 500 + Math.random() * 300,
-        ease: "outBack(1.7)",
-        delay: Math.random() * 120,
+        duration: 800 + Math.random() * 400, ease: "outBack(1.7)", delay: Math.random() * 150,
         onComplete: () => { el.style.display = ""; },
       });
     });
-
     setTimeout(() => {
-      if (flashRef.current) animate(flashRef.current, { opacity: [0,0.3,0], duration: 300, ease: "out(3)" });
-      if (fx) { spawnSw(fx); for (let i = 0; i < 3; i++) setTimeout(() => spawnEmbers(container, 4), i * 50); }
+      if (flashRef.current) animate(flashRef.current, { opacity:[0,0.3,0], duration:500, ease:"out(3)" });
+      if (fx) { spawnSw(fx); for (let i = 0; i < 3; i++) setTimeout(() => spawnEmbers(container, 4), i*80); }
       setDamage(0);
       setPhase("idle");
-    }, 800);
+    }, 1200);
   }, [phase]);
 
-  // ─── 点击 ───
   const handleClick = useCallback(() => {
     if (phase !== "idle") return;
     const c = avatarRef.current;
     if (!c) return;
     const n = damage + 1;
     setDamage(n);
-    if (flashRef.current) animate(flashRef.current, { opacity: [0.5,0], duration: 200, ease: "out(3)" });
+    if (flashRef.current) animate(flashRef.current, { opacity:[0.5,0], duration:300, ease:"out(3)" });
     const i = 3 + n * 2;
-    animate(c, {
-      translateX: [0,(Math.random()-.5)*i,(Math.random()-.5)*i*.6,0],
-      translateY: [0,(Math.random()-.5)*i,(Math.random()-.5)*i*.6,0],
-      duration: 250+n*20, ease: "out(3)",
-    });
+    animate(c, { translateX:[0,(Math.random()-.5)*i,(Math.random()-.5)*i*.6,0], translateY:[0,(Math.random()-.5)*i,(Math.random()-.5)*i*.6,0], duration:300+n*20, ease:"out(3)" });
     spawnEmbers(c, 2+n*2);
     if (n >= MAX_DAMAGE) setPhase("exploding");
   }, [damage, phase]);
 
-  // ─── 轨道 ───
   useEffect(() => {
     const back = backRef.current, front = frontRef.current;
     if (!back || !front) return;
@@ -328,25 +282,20 @@ export default function AvatarWithJelly() {
     });
     const drv = {a:0};
     const anim = animate(drv, {
-      a: Math.PI*2, duration: 35000, ease: "linear", loop: true,
+      a: Math.PI*2, duration:35000, ease:"linear", loop:true,
       onUpdate: () => all.forEach((d) => {
         const a = drv.a*d.speed+d.offset, ca = Math.cos(a);
         d.el.style.translate = `${ca*d.rx}px ${Math.sin(a)*d.ry}px`;
         const tf = ca > 0.05;
-        if (tf && d.el.parentElement===back && !d.fading) {
-          d.fading = true; d.el.style.opacity = "0";
-          setTimeout(() => { front.appendChild(d.el); d.el.style.opacity = ""; d.fading = false; }, 250);
-        } else if (!tf && d.el.parentElement===front && !d.fading) {
-          d.fading = true; d.el.style.opacity = "0";
-          setTimeout(() => { back.appendChild(d.el); d.el.style.opacity = ""; d.fading = false; }, 250);
-        }
+        if (tf && d.el.parentElement===back && !d.fading) { d.fading=true; d.el.style.opacity="0"; setTimeout(() => { front.appendChild(d.el); d.el.style.opacity=""; d.fading=false; }, 250); }
+        else if (!tf && d.el.parentElement===front && !d.fading) { d.fading=true; d.el.style.opacity="0"; setTimeout(() => { back.appendChild(d.el); d.el.style.opacity=""; d.fading=false; }, 250); }
       }),
     });
     return () => { anim.pause(); all.forEach(d=>d.el.remove()); rs.forEach(r=>r.remove()); };
   }, []);
 
   const glowI = damage / MAX_DAMAGE;
-  const crackData = useMemo(() => damage > 0 ? genCracks(damage) : [], [damage]);
+  const { paths: crackPaths, pools: crackPools } = useMemo(() => damage > 0 ? genCracks(damage) : { paths:[], pools:[] }, [damage]);
   const bs = phase === "idle"
     ? (damage === 0
       ? "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)"
@@ -370,56 +319,67 @@ export default function AvatarWithJelly() {
   }, []);
 
   return (
-    <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
+    <div className="relative mx-auto mb-10 flex items-center justify-center" style={{width:220,height:220}}>
       <div ref={backRef} className="absolute inset-0 z-0" />
       <div ref={fxRef} className="absolute inset-0 z-10 pointer-events-none" />
-
       <div ref={avatarRef} onClick={handleClick}
         className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-visible"
-        style={{ width: SIZE, height: SIZE, zIndex: 1, boxShadow: bs,
-          animation: phase==="idle"&&damage===0 ? "breathe-amber 3s ease-in-out infinite" : "none" }}
+        style={{width:SIZE,height:SIZE,zIndex:1,boxShadow:bs,animation:phase==="idle"&&damage===0?"breathe-amber 3s ease-in-out infinite":"none"}}
         role="img" aria-label="avatar">
+        {/* 行星本体 */}
         <div className={`absolute inset-0 rounded-full overflow-hidden transition-opacity duration-150 ${phase==="exploding"||phase==="rebuilding"?"opacity-0":"opacity-100"}`} style={{clipPath:"circle(50%)"}}>
           <img src={import.meta.env.BASE_URL+"avatar.png"} alt="" className="h-full w-full object-cover pointer-events-none" draggable={false} />
         </div>
-
+        {/* 裂纹 SVG */}
         {damage > 0 && phase === "idle" && (
           <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full pointer-events-none" style={{clipPath:"circle(50%)",zIndex:2}}>
-            {crackData.map((c, i) => (
-              <g key={i}>
-                <path d={c.d} fill="none" stroke={`oklch(0.7 ${0.2+glowI*.2} ${40-glowI*20}/${0.3+glowI*.5})`} strokeWidth={c.w+3} strokeLinecap="round" strokeLinejoin="round" style={{filter:"blur(3px)"}} />
-                <path d={c.d} fill="none" stroke={`oklch(0.9 0.15 ${50-glowI*15}/${0.5+glowI*.5})`} strokeWidth={c.w} strokeLinecap="round" strokeLinejoin="round" />
-              </g>
+            {/* 岩浆池底层光晕 */}
+            {crackPools.map((p, i) => (
+              <circle key={`pool-${i}`} cx={p.cx} cy={p.cy} r={p.r * 2.5}
+                fill={`oklch(0.75 ${0.2+glowI*.15} ${40-glowI*20} / ${0.15+glowI*.3})`}
+                style={{filter:"blur(4px)"}} />
+            ))}
+            {/* 岩浆池 */}
+            {crackPools.map((p, i) => (
+              <circle key={`pool-core-${i}`} cx={p.cx} cy={p.cy} r={p.r}
+                fill={`oklch(0.9 0.2 ${50-glowI*15} / ${0.6+glowI*.3})`}
+                style={{filter:"blur(1px)"}} />
+            ))}
+            {/* 裂纹外发光 */}
+            {crackPaths.map((c, i) => (
+              <path key={i} d={c.d} fill="none"
+                stroke={`oklch(0.7 ${0.2+glowI*.2} ${40-glowI*20} / ${0.3+glowI*.5})`}
+                strokeWidth={c.w+4} strokeLinecap="round" strokeLinejoin="round" style={{filter:"blur(3px)"}} />
+            ))}
+            {/* 裂纹内亮线 */}
+            {crackPaths.map((c, i) => (
+              <path key={`inner-${i}`} d={c.d} fill="none"
+                stroke={`oklch(0.95 0.15 ${50-glowI*15} / ${0.5+glowI*.5})`}
+                strokeWidth={c.w * 0.6} strokeLinecap="round" strokeLinejoin="round" />
             ))}
           </svg>
         )}
-
+        {/* 爆炸碎片 */}
         {(phase === "exploding" || phase === "rebuilding") && (
           <div className="absolute inset-0" style={{perspective:"400px",zIndex:2}}>
             {fragments.map((f, i) => (
               <div key={i} ref={(el) => { fragsRef.current[i] = el; }}
                 className="absolute"
-                style={{
-                  left: f.left, top: f.top, width: f.w, height: f.h,
-                  clipPath: f.clipPath,
-                  backgroundImage: `url(${import.meta.env.BASE_URL}avatar.png)`,
-                  backgroundSize: `${SIZE}px ${SIZE}px`,
-                  backgroundPosition: `${f.bgX}px ${f.bgY}px`,
-                }} />
+                style={{left:f.left,top:f.top,width:f.w,height:f.h,clipPath:f.clipPath,
+                  backgroundImage:`url(${import.meta.env.BASE_URL}avatar.png)`,
+                  backgroundSize:`${SIZE}px ${SIZE}px`,backgroundPosition:`${f.bgX}px ${f.bgY}px`}} />
             ))}
           </div>
         )}
-
+        {/* 伤害光晕 */}
         {damage > 0 && phase === "idle" && (
           <div className="absolute inset-0 rounded-full pointer-events-none"
             style={{background:`radial-gradient(circle at 50% 50%, oklch(${0.7+glowI*.2} 0.3 ${55-glowI*30}/${0.1+glowI*.35}) 0%, transparent ${55-glowI*18}%)`,mixBlendMode:"screen",zIndex:1}} />
         )}
-
         <div ref={flashRef} className="absolute inset-0 rounded-full pointer-events-none" style={{background:"white",opacity:0,zIndex:20}} />
         <div ref={shineRef} className="absolute inset-0 rounded-full pointer-events-none" style={{background:"radial-gradient(ellipse at 42% 32%, rgba(255,255,255,0.5) 0%, rgba(255,255,255,0.12) 30%, transparent 60%)",opacity:0.7}} />
         <div className="absolute inset-0 rounded-full pointer-events-none" style={{background:"radial-gradient(ellipse at 50% 88%, rgba(255,255,255,0.15) 0%, transparent 30%)"}} />
       </div>
-
       <div ref={frontRef} className="absolute inset-0 pointer-events-none" style={{zIndex:3}} />
     </div>
   );
