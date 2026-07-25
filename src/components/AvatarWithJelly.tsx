@@ -96,7 +96,8 @@ function genCracks(dmg: number): { d: string; w: number }[] {
       const parts = pts.split(" L ");
       const si = 1 + Math.floor(Math.random() * (parts.length - 2));
       if (si >= parts.length) continue;
-      const [sx, sy] = parts[si].split(" ").slice(1).map(Number);
+      const coords = parts[si].replace(/^M\s*/, "").split(" ").map(Number);
+      const sx = coords[0], sy = coords[1];
       if (isNaN(sx)) continue;
       const ba = baseA + (Math.random() > 0.5 ? 1 : -1) * (0.6 + Math.random() * 0.3);
       const bl = len * (0.15 + Math.random() * 0.2);
