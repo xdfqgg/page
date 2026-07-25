@@ -3,7 +3,6 @@ import { animate } from "animejs";
 
 const SIZE = 126;
 const MAX_DAMAGE = 6;
-const FRAG_COUNT = 18;
 
 const RINGS = [
   { rx: 90, ry: 36, speed: 0.35, color: "oklch(0.72 0.2 85 / 0.7)", count: 12, size: 2.5, ring: "oklch(0.72 0.2 85 / 0.12)" },
@@ -12,103 +11,116 @@ const RINGS = [
   { rx: 84, ry: 40, speed: -0.45, color: "oklch(0.68 0.18 50 / 0.5)", count: 8, size: 2.5, ring: "oklch(0.68 0.18 50 / 0.1)" },
 ];
 
-/* ─── 不规则碎片生成 ─── */
-interface Fragment {
+/* ─── 不规则碎片 ─── */
+interface Shard {
+  left: number;
+  top: number;
+  w: number;
+  h: number;
   clipPath: string;
-  /** 中心点 (用于飞散方向) */
+  bgX: number;
+  bgY: number;
   cx: number;
   cy: number;
   dist: number;
   angle: number;
 }
 
-function makeFragments(): Fragment[] {
+function makeShards(): Shard[] {
+  const GRID = 8;
+  const cell = SIZE / GRID;
   const cx = SIZE / 2, cy = SIZE / 2, r = SIZE / 2;
-  const angles: number[] = [];
-  for (let i = 0; i < FRAG_COUNT; i++) {
-    angles.push((i / FRAG_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.3);
-  }
-  angles.sort((a, b) => a - b);
+  const shards: Shard[] = [];
 
-  const frags: Fragment[] = [];
-  for (let i = 0; i < FRAG_COUNT; i++) {
-    const a0 = angles[i];
-    const a1 = angles[(i + 1) % FRAG_COUNT];
-    const mid = (a0 + a1) / 2;
+  for (let row = 0; row < GRID; row++) {
+    for (let col = 0; col < GRID; col++) {
+      const x = col * cell, y = row * cell;
+      // 至少一个角在圆内
+      const cr = [[x, y], [x + cell, y], [x, y + cell], [x + cell, y + cell]];
+      if (!cr.some(([px, py]) => Math.hypot(px - cx, py - cy) <= r)) continue;
 
-    const cj = r * 0.15;
-    const cxx = cx + (Math.random() - 0.5) * cj;
-    const cyy = cy + (Math.random() - 0.5) * cj;
+      const j = cell * 0.22;
+      // 四个角加随机偏移
+      const pts = [
+        `${(Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
+        `${cell + (Math.random() - 0.5) * j} ${(Math.random() - 0.5) * j}`,
+        `${cell + (Math.random() - 0.5) * j} ${cell + (Math.random() - 0.5) * j}`,
+        `${(Math.random() - 0.5) * j} ${cell + (Math.random() - 0.5) * j}`,
+      ].map((p) => {
+        // 约束到圆形内
+        const [xx, yy] = p.split(" ").map(Number);
+        const gx = x + xx, gy = y + yy;
+        const d = Math.hypot(gx - cx, gy - cy);
+        if (d > r * 0.96) {
+          const sc = (r * 0.96) / d;
+          return `${(cx + (gx - cx) * sc) - x}px ${(cy + (gy - cy) * sc) - y}px`;
+        }
+        return `${xx}px ${yy}px`;
+      });
 
-    const pts: string[] = [`${cxx} ${cyy}`];
-    const segs = 2 + Math.floor(Math.random() * 2);
-    for (let s = 0; s <= segs; s++) {
-      const t = s / segs;
-      const a = a0 + (a1 - a0) * t;
-      const jr = r * (0.92 + (Math.random() - 0.5) * 0.08);
-      pts.push(`${cx + Math.cos(a) * jr} ${cy + Math.sin(a) * jr}`);
+      const cx2 = x + cell / 2 + (Math.random() - 0.5) * j;
+      const cy2 = y + cell / 2 + (Math.random() - 0.5) * j;
+
+      shards.push({
+        left: x, top: y, w: cell + 2, h: cell + 2,
+        clipPath: `polygon(${pts.join(", ")})`,
+        bgX: -x, bgY: -y,
+        cx: cx2, cy: cy2,
+        dist: Math.hypot(cx2 - cx, cy2 - cy),
+        angle: Math.atan2(cy2 - cy, cx2 - cx),
+      });
     }
-
-    frags.push({
-      clipPath: `polygon(${pts.join(", ")})`,
-      cx: cxx, cy: cyy,
-      dist: Math.hypot(cxx - cx, cyy - cy),
-      angle: mid,
-    });
   }
-  return frags;
+  return shards;
 }
 
-/* ─── 岩浆裂纹生成 ─── */
-function generateLavaCracks(dmg: number): string[] {
-  const paths: string[] = [];
+/* ─── 岩浆裂纹 ─── */
+function generateCracks(dmg: number): { d: string; w: number }[] {
   const cx = SIZE / 2, cy = SIZE / 2;
-  const mainCount = 2 + dmg;
+  const paths: { d: string; w: number }[] = [];
+  const mainCount = 3 + dmg;
 
   for (let i = 0; i < mainCount; i++) {
-    const baseA = (i / mainCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.5;
-    const len = SIZE * 0.3 * (0.6 + Math.random() * 0.4);
+    const baseA = (i / mainCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.6;
+    const len = SIZE * (0.25 + Math.random() * 0.3);
     let pts = `M ${cx} ${cy}`;
     let px = cx, py = cy;
-    const steps = 4 + Math.floor(dmg / 2);
+    const steps = 5 + dmg;
 
     for (let s = 1; s <= steps; s++) {
-      const a = baseA + (Math.random() - 0.5) * 0.8;
+      const a = baseA + (Math.random() - 0.5) * 1.0;
       const seg = len / steps;
-      px += Math.cos(a) * seg + (Math.random() - 0.5) * 4;
-      py += Math.sin(a) * seg + (Math.random() - 0.5) * 4;
+      px += Math.cos(a) * seg + (Math.random() - 0.5) * 5;
+      py += Math.sin(a) * seg + (Math.random() - 0.5) * 5;
       const d = Math.hypot(px - cx, py - cy);
       if (d > SIZE * 0.44) {
         const sc = (SIZE * 0.44) / d;
-        px = cx + (px - cx) * sc;
-        py = cy + (py - cy) * sc;
+        px = cx + (px - cx) * sc; py = cy + (py - cy) * sc;
       }
       pts += ` L ${px} ${py}`;
     }
-    paths.push(pts);
+    paths.push({ d: pts, w: 2 + dmg * 0.4 });
 
     // 分支
-    const branches = Math.floor(Math.random() * 2) + (dmg >= 4 ? 1 : 0);
-    for (let b = 0; b < branches; b++) {
-      const splitIdx = 1 + Math.floor(Math.random() * (steps - 1));
+    for (let b = 0; b < Math.floor(Math.random() * 2) + (dmg >= 3 ? 1 : 0); b++) {
       const parts = pts.split(" L ");
-      if (splitIdx >= parts.length) continue;
-      const sp = parts[splitIdx];
+      const si = 1 + Math.floor(Math.random() * (steps - 2));
+      if (si >= parts.length) continue;
+      const sp = parts[si];
       const [sx, sy] = sp.split(" ").slice(1).map(Number);
-      if (isNaN(sx) || isNaN(sy)) continue;
+      if (isNaN(sx)) continue;
 
-      const bAngle = baseA + (Math.random() - 0.5) * 2;
-      const bLen = len * (0.25 + Math.random() * 0.25);
+      const ba = baseA + (Math.random() - 0.5) * 2.2;
+      const bl = len * (0.2 + Math.random() * 0.2);
       let bpts = `M ${sx} ${sy}`;
       let bpx = sx, bpy = sy;
       for (let bs = 1; bs <= 3; bs++) {
-        const ba = bAngle + (Math.random() - 0.5) * 1;
-        const bl = bLen / 3;
-        bpx += Math.cos(ba) * bl + (Math.random() - 0.5) * 3;
-        bpy += Math.sin(ba) * bl + (Math.random() - 0.5) * 3;
+        const ba2 = ba + (Math.random() - 0.5) * 1.2;
+        bpx += Math.cos(ba2) * bl / 3 + (Math.random() - 0.5) * 4;
+        bpy += Math.sin(ba2) * bl / 3 + (Math.random() - 0.5) * 4;
         bpts += ` L ${bpx} ${bpy}`;
       }
-      paths.push(bpts);
+      paths.push({ d: bpts, w: 1 + dmg * 0.2 });
     }
   }
   return paths;
@@ -117,16 +129,15 @@ function generateLavaCracks(dmg: number): string[] {
 type Phase = "idle" | "exploding" | "rebuilding";
 
 /* ─── 火星粒子 ─── */
-function spawnEmbers(container: HTMLElement, count: number, big = false) {
-  const cx = 63, cy = 63;
+function spawnEmbers(container: HTMLElement, count: number, sizeMul = 1) {
   for (let i = 0; i < count; i++) {
     const e = document.createElement("div");
-    const s = big ? 4 + Math.random() * 6 : 2 + Math.random() * 4;
+    const s = (2 + Math.random() * 4) * sizeMul;
     const a = Math.random() * Math.PI * 2;
-    const d = big ? 30 + Math.random() * 60 : 5 + Math.random() * 25;
+    const d = (5 + Math.random() * 30) * sizeMul;
     const hue = 20 + Math.random() * 30;
     e.style.cssText = `
-      position:absolute; left:${cx}px; top:${cy}px; border-radius:50%;
+      position:absolute; left:63px; top:63px; border-radius:50%;
       width:${s}px; height:${s}px; pointer-events:none;
       background:oklch(${0.55 + Math.random() * 0.25} ${0.25} ${hue});
       box-shadow:0 0 ${s * 4}px ${s * 1.5}px oklch(0.7 0.25 ${hue} / 0.5);
@@ -137,32 +148,92 @@ function spawnEmbers(container: HTMLElement, count: number, big = false) {
       translateY: Math.sin(a) * d - 10 - Math.random() * 15,
       opacity: [1, 0],
       scale: [1, 0.2],
-      duration: 500 + Math.random() * 500,
+      duration: 400 + Math.random() * 600,
       ease: "out(2)",
       onComplete: () => e.remove(),
     });
   }
 }
 
+/* ─── 岩浆柱特效 ─── */
+function spawnMagmaJet(container: HTMLElement, cx: number, cy: number) {
+  const streamCount = 8;
+  for (let i = 0; i < streamCount; i++) {
+    const angle = (i / streamCount) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
+    for (let layer = 0; layer < 4; layer++) {
+      const e = document.createElement("div");
+      const s = (3 + Math.random() * 6) * (1 - layer * 0.2);
+      const d = (20 + Math.random() * 50) * (1 + layer * 0.5);
+      const delay = layer * 30 + Math.random() * 50;
+      const hue = 25 + Math.random() * 25;
+      e.style.cssText = `
+        position:absolute; left:${cx}px; top:${cy}px; border-radius:50%;
+        width:${s}px; height:${s}px; pointer-events:none;
+        background:oklch(${0.7 - layer * 0.1} ${0.3} ${hue});
+        box-shadow:0 0 ${s * 6}px ${s * 2}px oklch(0.8 0.3 ${hue} / 0.6);
+      `;
+      container.appendChild(e);
+      animate(e, {
+        translateX: Math.cos(angle) * d,
+        translateY: Math.sin(angle) * d,
+        opacity: [1, 0],
+        scale: [1.5, 0.1],
+        duration: 300 + Math.random() * 400,
+        delay,
+        ease: "out(2)",
+        onComplete: () => e.remove(),
+      });
+    }
+  }
+}
+
+/* ─── 烟雾云团 ─── */
+function spawnSmoke(container: HTMLElement) {
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement("div");
+    const a = Math.random() * Math.PI * 2;
+    const d = 10 + Math.random() * 40;
+    const sz = 20 + Math.random() * 40;
+    s.style.cssText = `
+      position:absolute; left:${63 - sz / 2}px; top:${63 - sz / 2}px;
+      width:${sz}px; height:${sz}px; border-radius:50%; pointer-events:none;
+      background:radial-gradient(circle, oklch(0.5 0.05 40 / 0.3), transparent);
+      filter:blur(4px);
+    `;
+    container.appendChild(s);
+    animate(s, {
+      translateX: Math.cos(a) * d,
+      translateY: Math.sin(a) * d,
+      scale: [0.5, 2.5],
+      opacity: [0.4, 0],
+      duration: 800 + Math.random() * 600,
+      ease: "out(3)",
+      onComplete: () => s.remove(),
+    });
+  }
+}
+
 /* ─── 冲击波 ─── */
 function spawnShockwave(container: HTMLElement) {
-  const ring = document.createElement("div");
-  ring.style.cssText = `
-    position:absolute; left:50%; top:50%; border-radius:50%;
-    width:0; height:0; pointer-events:none;
-    border:2px solid oklch(0.8 0.3 40 / 0.8);
-    transform:translate(-50%,-50%);
-  `;
-  container.appendChild(ring);
-  animate(ring, {
-    width: [0, 220],
-    height: [0, 220],
-    opacity: [0.8, 0],
-    borderWidth: [3, 0.5],
-    duration: 600,
-    ease: "out(3)",
-    onComplete: () => ring.remove(),
-  });
+  for (let i = 0; i < 2; i++) {
+    const r = document.createElement("div");
+    r.style.cssText = `
+      position:absolute; left:50%; top:50%; border-radius:50%;
+      width:0; height:0; pointer-events:none;
+      border:${2 - i}px solid oklch(${0.85 - i * 0.15} ${0.3} ${35 + i * 10} / ${0.8 - i * 0.3});
+      transform:translate(-50%,-50%);
+    `;
+    container.appendChild(r);
+    animate(r, {
+      width: [0, 180 + i * 60],
+      height: [0, 180 + i * 60],
+      opacity: [0.9, 0],
+      duration: 500 + i * 200,
+      delay: i * 80,
+      ease: "out(3)",
+      onComplete: () => r.remove(),
+    });
+  }
 }
 
 export default function AvatarWithJelly() {
@@ -173,62 +244,70 @@ export default function AvatarWithJelly() {
   const avatarRef = useRef<HTMLDivElement>(null);
   const shineRef = useRef<HTMLDivElement>(null);
   const flashRef = useRef<HTMLDivElement>(null);
-  const shockRef = useRef<HTMLDivElement>(null);
+  const fxRef = useRef<HTMLDivElement>(null);
   const fragsRef = useRef<(HTMLDivElement | null)[]>([]);
-  const fragments = useMemo(makeFragments, []);
+  const shards = useMemo(makeShards, []);
 
   /* ─── 爆炸 ─── */
   const triggerExplosion = useCallback(() => {
     setPhase("exploding");
     const container = avatarRef.current;
+    const fx = fxRef.current;
     if (!container) return;
 
-    // 大白闪
+    // 0ms: 白光闪
     if (flashRef.current) {
-      animate(flashRef.current, { opacity: [0, 1, 0.8, 0], duration: 500, ease: "out(3)" });
+      animate(flashRef.current, { opacity: [0, 1, 0.7, 0], duration: 500, ease: "out(3)" });
     }
 
-    // 冲击波
-    if (shockRef.current) spawnShockwave(shockRef.current);
+    // 0ms: 冲击波
+    if (fx) spawnShockwave(fx);
+    // 0ms: 烟雾
+    if (fx) spawnSmoke(fx);
 
-    // 震动
+    // 0ms: 震动
     animate(container, {
-      translateX: [0, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 10, 0],
-      translateY: [0, (Math.random() - 0.5) * 16, (Math.random() - 0.5) * 10, 0],
-      scale: [1, 1.08, 0.96, 1],
-      duration: 600, ease: "out(2)",
+      translateX: [0, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 12, 0],
+      translateY: [0, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 12, 0],
+      scale: [1, 1.1, 0.95, 1],
+      duration: 700, ease: "out(2)",
     });
 
-    // 大量火星
-    for (let i = 0; i < 5; i++) {
-      setTimeout(() => spawnEmbers(container, 10, true), i * 40);
-    }
-
-    // 碎片向外飞散
+    // 50ms: 碎片飞散
     fragsRef.current.forEach((el, i) => {
       if (!el) return;
-      const f = fragments[i];
+      const f = shards[i];
       if (!f) return;
-      const flyDist = 90 + Math.random() * 150 + f.dist * 0.6;
-      const flyAngle = f.angle + (Math.random() - 0.5) * 0.4;
-      const rotZ = (Math.random() - 0.5) * 720;
-      const rotX = (Math.random() - 0.5) * 60;
-      const rotY = (Math.random() - 0.5) * 60;
+      const flyDist = 40 + Math.random() * 180 + f.dist * 0.8;
+      const flyAngle = f.angle + (Math.random() - 0.5) * 0.6;
+      const rotZ = (Math.random() - 0.5) * 900;
+      const rotX = (Math.random() - 0.5) * 120;
+      const rotY = (Math.random() - 0.5) * 120;
       el.style.display = "block";
       animate(el, {
         translateX: Math.cos(flyAngle) * flyDist,
         translateY: Math.sin(flyAngle) * flyDist,
-        rotate: rotZ,
-        rotateX: rotX,
-        rotateY: rotY,
-        opacity: [1, 0.5],
-        duration: 500 + Math.random() * 400,
+        rotate: rotZ, rotateX: rotX, rotateY: rotY,
+        opacity: [1, 0.4],
+        duration: 400 + Math.random() * 500,
         ease: "out(3)",
-        delay: Math.random() * 60,
+        delay: Math.random() * 100,
       });
     });
 
-    // 复原：碎片飞回来
+    // 50ms: 岩浆喷涌
+    for (let w = 0; w < 3; w++) {
+      setTimeout(() => {
+        if (fx) spawnMagmaJet(fx, 63 + (Math.random() - 0.5) * 20, 63 + (Math.random() - 0.5) * 20);
+      }, 50 + w * 80);
+    }
+
+    // 150ms: 第二轮火星
+    for (let i = 0; i < 4; i++) {
+      setTimeout(() => spawnEmbers(container, 12, 1.5), 150 + i * 60);
+    }
+
+    // 1200ms: 碎片飞回重建
     setTimeout(() => {
       setPhase("rebuilding");
       fragsRef.current.forEach((el) => {
@@ -237,18 +316,30 @@ export default function AvatarWithJelly() {
           translateX: 0, translateY: 0,
           rotate: 0, rotateX: 0, rotateY: 0,
           opacity: 1,
-          duration: 400 + Math.random() * 300,
-          ease: "out(4)",
-          delay: Math.random() * 80,
+          duration: 600 + Math.random() * 300,
+          ease: "outBack(1.7)",
+          delay: Math.random() * 150,
           onComplete: () => { el.style.display = ""; },
         });
       });
+
+      // 重建完成脉冲
       setTimeout(() => {
+        if (flashRef.current) {
+          animate(flashRef.current, { opacity: [0, 0.3, 0], duration: 300, ease: "out(3)" });
+        }
+        if (fx) {
+          spawnShockwave(fx);
+          // 重建后的小火星
+          for (let i = 0; i < 3; i++) {
+            setTimeout(() => spawnEmbers(container, 4), i * 50);
+          }
+        }
         setDamage(0);
         setPhase("idle");
-      }, 700);
-    }, 1200);
-  }, [fragments]);
+      }, 900);
+    }, 1300);
+  }, [shards]);
 
   /* ─── 点击 ─── */
   const handleClick = useCallback(() => {
@@ -259,21 +350,18 @@ export default function AvatarWithJelly() {
     const next = damage + 1;
     setDamage(next);
 
-    // 闪光
     if (flashRef.current) {
       animate(flashRef.current, { opacity: [0.5, 0], duration: 200, ease: "out(3)" });
     }
 
-    // 震动 (越来越强)
-    const intensity = 3 + next * 1.5;
+    const intensity = 3 + next * 2;
     animate(container, {
       translateX: [0, (Math.random() - 0.5) * intensity, (Math.random() - 0.5) * intensity * 0.6, 0],
       translateY: [0, (Math.random() - 0.5) * intensity, (Math.random() - 0.5) * intensity * 0.6, 0],
       duration: 250 + next * 20, ease: "out(3)",
     });
 
-    // 火星 (越来越多)
-    spawnEmbers(container, 1 + next * 2);
+    spawnEmbers(container, 2 + next * 2);
 
     if (next >= MAX_DAMAGE) {
       triggerExplosion();
@@ -284,14 +372,12 @@ export default function AvatarWithJelly() {
   useEffect(() => {
     const back = backRef.current, front = frontRef.current;
     if (!back || !front) return;
-
     const ringEls: HTMLDivElement[] = [];
     RINGS.forEach((cfg) => {
       const r = document.createElement("div");
       r.style.cssText = `position:absolute; border-radius:50%; pointer-events:none; width:${cfg.rx * 2}px; height:${cfg.ry * 2}px; left:50%; top:50%; margin-left:-${cfg.rx}px; margin-top:-${cfg.ry}px; border:1px solid ${cfg.ring};`;
       back.appendChild(r); ringEls.push(r);
     });
-
     const all: Array<{ el: HTMLDivElement; rx: number; ry: number; speed: number; offset: number; fading: boolean }> = [];
     RINGS.forEach((cfg) => {
       for (let i = 0; i < cfg.count; i++) {
@@ -302,7 +388,6 @@ export default function AvatarWithJelly() {
         all.push({ el: dot, rx: cfg.rx, ry: cfg.ry, speed: cfg.speed, offset: (i / cfg.count) * Math.PI * 2, fading: false });
       }
     });
-
     const driver = { a: 0 };
     const anim = animate(driver, {
       a: Math.PI * 2, duration: 35000, ease: "linear", loop: true,
@@ -324,35 +409,27 @@ export default function AvatarWithJelly() {
 
   /* ─── 光晕/裂纹 ─── */
   const glowIntensity = damage / MAX_DAMAGE;
-  const crackPaths = useMemo(() => damage > 0 ? generateLavaCracks(damage) : [], [damage]);
+  const crackData = useMemo(() => damage > 0 ? generateCracks(damage) : [], [damage]);
   const boxShadow = phase === "idle"
     ? (damage === 0
       ? "0 0 25px 4px oklch(0.7 0.2 85 / 0.2), 0 0 60px 10px oklch(0.7 0.2 85 / 0.08)"
-      : `0 0 ${25 + glowIntensity * 40}px ${4 + glowIntensity * 12}px oklch(0.7 ${0.2 + glowIntensity * 0.25} ${85 - glowIntensity * 50} / ${0.2 + glowIntensity * 0.5}), 0 0 ${60 + glowIntensity * 60}px ${10 + glowIntensity * 20}px oklch(0.7 ${0.2 + glowIntensity * 0.15} ${85 - glowIntensity * 40} / ${0.08 + glowIntensity * 0.3})`)
-    : "0 0 40px 12px oklch(0.85 0.35 35 / 0.7), 0 0 100px 30px oklch(0.85 0.35 35 / 0.35)";
+      : `0 0 ${25 + glowIntensity * 45}px ${4 + glowIntensity * 14}px oklch(0.7 ${0.2 + glowIntensity * 0.3} ${85 - glowIntensity * 55} / ${0.2 + glowIntensity * 0.5}), 0 0 ${60 + glowIntensity * 70}px ${10 + glowIntensity * 25}px oklch(0.7 ${0.2 + glowIntensity * 0.2} ${85 - glowIntensity * 45} / ${0.08 + glowIntensity * 0.35})`)
+    : "0 0 50px 15px oklch(0.85 0.35 35 / 0.8), 0 0 120px 35px oklch(0.85 0.35 35 / 0.4)";
 
-  /* ─── Hover 高光 ─── */
+  /* ─── Hover ─── */
   useEffect(() => {
-    const el = avatarRef.current;
-    const shine = shineRef.current;
+    const el = avatarRef.current, shine = shineRef.current;
     if (!el || !shine) return;
-
     const handler = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx, dy = e.clientY - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
+      const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx, dy = e.clientY - cy, dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 200) {
         const t = 1 - dist / 200;
-        const sx = 50 + (dx / (dist || 1)) * 20 * t;
-        const sy = 50 + (dy / (dist || 1)) * 16 * t;
-        shine.style.background = `radial-gradient(ellipse at ${sx}% ${sy}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.03) 55%, transparent 72%)`;
+        shine.style.background = `radial-gradient(ellipse at ${50 + (dx / (dist || 1)) * 20 * t}% ${50 + (dy / (dist || 1)) * 16 * t}%, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0.2) 25%, rgba(255,255,255,0.03) 55%, transparent 72%)`;
         shine.style.opacity = "1";
       }
     };
-
     window.addEventListener("mousemove", handler);
     return () => window.removeEventListener("mousemove", handler);
   }, []);
@@ -361,8 +438,8 @@ export default function AvatarWithJelly() {
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
       <div ref={backRef} className="absolute inset-0 z-0" />
 
-      {/* 冲击波容器 */}
-      <div ref={shockRef} className="absolute inset-0 z-10 pointer-events-none" />
+      {/* 特效层 */}
+      <div ref={fxRef} className="absolute inset-0 z-10 pointer-events-none" />
 
       <div
         ref={avatarRef}
@@ -375,28 +452,26 @@ export default function AvatarWithJelly() {
         role="img" aria-label="avatar"
       >
         {/* 行星本体 */}
-        <div className={`absolute inset-0 rounded-full overflow-hidden ${phase === "exploding" || phase === "rebuilding" ? "opacity-0" : "opacity-100"} transition-opacity duration-150`}
+        <div className={`absolute inset-0 rounded-full overflow-hidden transition-opacity duration-150 ${phase === "exploding" || phase === "rebuilding" ? "opacity-0" : "opacity-100"}`}
           style={{ clipPath: "circle(50%)" }}>
           <img src={import.meta.env.BASE_URL + "avatar.png"} alt=""
             className="h-full w-full object-cover pointer-events-none" draggable={false} />
         </div>
 
-        {/* 岩浆裂纹 SVG */}
+        {/* 岩浆裂纹 */}
         {damage > 0 && phase === "idle" && (
-          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full pointer-events-none z-10"
-            style={{ clipPath: "circle(50%)" }}>
-            {crackPaths.map((d, i) => (
+          <svg viewBox={`0 0 ${SIZE} ${SIZE}`} className="absolute inset-0 h-full w-full pointer-events-none"
+            style={{ clipPath: "circle(50%)", zIndex: 2 }}>
+            {crackData.map((c, i) => (
               <g key={i}>
-                {/* 外发光 */}
-                <path d={d} fill="none"
-                  stroke={`oklch(0.7 ${0.2 + glowIntensity * 0.15} ${45 - glowIntensity * 20} / ${0.3 + glowIntensity * 0.4})`}
-                  strokeWidth={2.5 + glowIntensity * 3}
+                <path d={c.d} fill="none"
+                  stroke={`oklch(0.7 ${0.2 + glowIntensity * 0.2} ${40 - glowIntensity * 20} / ${0.3 + glowIntensity * 0.5})`}
+                  strokeWidth={c.w + 3}
                   strokeLinecap="round" strokeLinejoin="round"
-                  style={{ filter: "blur(2px)" }} />
-                {/* 内亮线 */}
-                <path d={d} fill="none"
-                  stroke={`oklch(0.85 ${0.15} ${50 - glowIntensity * 15} / ${0.5 + glowIntensity * 0.4})`}
-                  strokeWidth={1 + glowIntensity * 1.5}
+                  style={{ filter: "blur(3px)" }} />
+                <path d={c.d} fill="none"
+                  stroke={`oklch(0.9 ${0.15} ${50 - glowIntensity * 15} / ${0.5 + glowIntensity * 0.5})`}
+                  strokeWidth={c.w}
                   strokeLinecap="round" strokeLinejoin="round" />
               </g>
             ))}
@@ -405,16 +480,18 @@ export default function AvatarWithJelly() {
 
         {/* 爆炸碎片 */}
         {(phase === "exploding" || phase === "rebuilding") && (
-          <div className="absolute inset-0" style={{ perspective: "300px" }}>
-            {fragments.map((f, i) => (
+          <div className="absolute inset-0" style={{ perspective: "400px", zIndex: 2 }}>
+            {shards.map((f, i) => (
               <div key={i}
                 ref={(el) => { fragsRef.current[i] = el; }}
                 className="absolute"
                 style={{
-                  inset: 0, width: "100%", height: "100%",
+                  left: f.left, top: f.top,
+                  width: f.w, height: f.h,
                   clipPath: f.clipPath,
                   backgroundImage: `url(${import.meta.env.BASE_URL}avatar.png)`,
-                  backgroundSize: "cover", backgroundPosition: "center",
+                  backgroundSize: `${SIZE}px ${SIZE}px`,
+                  backgroundPosition: `${f.bgX}px ${f.bgY}px`,
                 }} />
             ))}
           </div>
@@ -422,16 +499,16 @@ export default function AvatarWithJelly() {
 
         {/* 伤害光晕 */}
         {damage > 0 && phase === "idle" && (
-          <div className="absolute inset-0 rounded-full pointer-events-none z-5"
+          <div className="absolute inset-0 rounded-full pointer-events-none"
             style={{
-              background: `radial-gradient(circle at 50% 50%, oklch(${0.7 + glowIntensity * 0.2} ${0.25} ${55 - glowIntensity * 25} / ${0.1 + glowIntensity * 0.3}) 0%, transparent ${55 - glowIntensity * 15}%)`,
-              mixBlendMode: "screen",
+              background: `radial-gradient(circle at 50% 50%, oklch(${0.7 + glowIntensity * 0.2} ${0.3} ${55 - glowIntensity * 30} / ${0.1 + glowIntensity * 0.35}) 0%, transparent ${55 - glowIntensity * 18}%)`,
+              mixBlendMode: "screen", zIndex: 1,
             }} />
         )}
 
         {/* 闪光层 */}
-        <div ref={flashRef} className="absolute inset-0 rounded-full pointer-events-none z-20"
-          style={{ background: "white", opacity: 0 }} />
+        <div ref={flashRef} className="absolute inset-0 rounded-full pointer-events-none"
+          style={{ background: "white", opacity: 0, zIndex: 20 }} />
 
         {/* 高光 */}
         <div ref={shineRef} className="absolute inset-0 rounded-full pointer-events-none"
