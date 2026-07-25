@@ -76,7 +76,7 @@ export default function AvatarWithJelly() {
   const fragments = useMemo(makeFragments, []);
 
   /* --- 点击 --- */
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleClick = useCallback(() => {
     if (phase !== "idle") return;
     const container = avatarRef.current;
     if (!container) return;
