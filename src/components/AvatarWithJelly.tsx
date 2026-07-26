@@ -362,13 +362,28 @@ export default function AvatarWithJelly() {
 
   return (
     <div className="relative mx-auto mb-10 flex items-center justify-center" style={{ width: 220, height: 220 }}>
+      {/* 呼吸光晕关键帧 */}
+      <style>{`
+        @keyframes breathe-amber {
+          0%, 100% { opacity: 0.4; }
+          50%      { opacity: 0.8; }
+        }
+      `}</style>
       <div ref={br} className="absolute inset-0 z-0" />
+      {/* 呼吸光晕环（用 opacity 动画替代 box-shadow 动画，避免 repaint 卡顿） */}
+      {phase === "idle" && dmg === 0 && (
+        <div className="absolute rounded-full pointer-events-none"
+          style={{
+            width: SIZE + 16, height: SIZE + 16, zIndex: 1,
+            background: "radial-gradient(circle, oklch(0.7 0.2 85/0.12) 0%, oklch(0.7 0.2 85/0.03) 50%, transparent 70%)",
+            animation: "breathe-amber 3s ease-in-out infinite",
+          }} />
+      )}
       <div ref={fxr} className="absolute inset-0 z-10 pointer-events-none" />
       <div ref={ar} onClick={handleClick}
         className="relative flex items-center justify-center rounded-full cursor-pointer select-none overflow-visible"
         style={{
           width: SIZE, height: SIZE, zIndex: 1, boxShadow: bs,
-          animation: phase === "idle" && dmg === 0 ? "breathe-amber 3s ease-in-out infinite" : "none",
         }}
         role="img" aria-label="avatar">
 
