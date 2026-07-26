@@ -133,6 +133,38 @@ function flashScreen() {
   animate(f, { opacity: [0, 1, 0.6, 0], duration: 600, ease: "out(2)", onComplete: () => f.remove() });
 }
 
+function pageShake() {
+  const h = document.documentElement;
+  h.style.transition = "transform 0.8s ease-out";
+  h.style.transform = `translate(${(Math.random() - 0.5) * 12}px, ${(Math.random() - 0.5) * 12}px)`;
+  setTimeout(() => {
+    h.style.transform = `translate(${(Math.random() - 0.5) * 8}px, ${(Math.random() - 0.5) * 8}px)`;
+    setTimeout(() => { h.style.transform = ""; h.style.transition = ""; }, 300);
+  }, 200);
+}
+
+function pageShockwave(ox: number, oy: number) {
+  for (let i = 0; i < 3; i++) {
+    const r = document.createElement("div");
+    r.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:0;height:0;pointer-events:none;z-index:9997;border:${3 - i}px solid oklch(${0.85 - i * 0.15} 0.3 ${35 + i * 10}/${0.7 - i * 0.2});transform:translate(-50%,-50%);`;
+    document.body.appendChild(r);
+    animate(r, { width: [0, 600 + i * 300], height: [0, 600 + i * 300], opacity: [0.8, 0], duration: 1000 + i * 300, delay: i * 120, ease: "out(3)", onComplete: () => r.remove() });
+  }
+}
+
+function pageParticles(n: number, ox: number, oy: number) {
+  const frag = document.createDocumentFragment();
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("div");
+    const s = 3 + Math.random() * 6, a = Math.random() * Math.PI * 2;
+    const d = 80 + Math.random() * 300, hue = 20 + Math.random() * 30;
+    p.style.cssText = `position:fixed;left:${ox}px;top:${oy}px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;z-index:9998;background:oklch(${0.6 + Math.random() * 0.3} 0.25 ${hue});`;
+    frag.appendChild(p);
+    animate(p, { translateX: Math.cos(a) * d, translateY: Math.sin(a) * d - 15, opacity: [1, 0], scale: [1.5, 0], duration: 600 + Math.random() * 800, ease: "out(2)", onComplete: () => p.remove() });
+  }
+  document.body.appendChild(frag);
+}
+
 export default function AvatarWithJelly() {
   const [dmg, setDmg] = useState(0);
   const [phase, setPhase] = useState<Phase>("idle");
@@ -200,7 +232,7 @@ export default function AvatarWithJelly() {
     const rect = c.getBoundingClientRect();
     const pcx = rect.left + rect.width / 2, pcy = rect.top + rect.height / 2;
 
-    flashScreen();
+    flashScreen(); pageShake(); pageShockwave(pcx, pcy); pageParticles(25, pcx, pcy);
     if (flr.current) animate(flr.current, { opacity: [0, 1, 0.7, 0], duration: 700, ease: "out(3)" });
     if (fx) shockwave(fx);
 
