@@ -416,7 +416,7 @@ export default function AvatarWithJelly() {
 
         {/* 碎片层 */}
         {(phase !== "idle" || dmg > 0) && (
-          <div className="absolute inset-0" style={{ clipPath: phase === "idle" ? "circle(50%)" : undefined, zIndex: 2 }}>
+          <div className="absolute inset-0" style={{ clipPath: phase !== "exploding" ? "circle(50%)" : undefined, zIndex: 2 }}>
             {frags.map((f, i) => (
               <div key={i} ref={(el) => { fragr.current[i] = el; }} className="absolute"
                 style={{
