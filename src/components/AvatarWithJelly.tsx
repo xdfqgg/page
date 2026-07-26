@@ -99,20 +99,19 @@ type Phase = "idle" | "exploding" | "rebuilding";
 /* ─── 粒子效果（简化） ─── */
 function spawnEmbers(c: HTMLElement, n: number) {
   const frag = document.createDocumentFragment();
-  const anims: ReturnType<typeof animate>[] = [];
   for (let i = 0; i < n; i++) {
     const e = document.createElement("div");
     const s = 2 + Math.random() * 4, a = Math.random() * Math.PI * 2;
     const d = 8 + Math.random() * 25, hue = 20 + Math.random() * 30;
     e.style.cssText = `position:absolute;left:63px;top:63px;border-radius:50%;width:${s}px;height:${s}px;pointer-events:none;background:oklch(${0.55 + Math.random() * 0.25} 0.25 ${hue});`;
     frag.appendChild(e);
-    anims.push(animate(e, {
+    animate(e, {
       translateX: Math.cos(a) * d,
       translateY: Math.sin(a) * d - 10 - Math.random() * 15,
       opacity: [1, 0], scale: [1, 0.2],
       duration: 400 + Math.random() * 500, ease: "out(2)",
       onComplete: () => e.remove(),
-    }));
+    });
   }
   c.appendChild(frag);
 }
