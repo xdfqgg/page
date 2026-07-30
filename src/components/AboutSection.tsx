@@ -31,9 +31,8 @@ interface SocialLink {
 /** 社交链接配置——替换为你自己的信息 */
 const SOCIAL_LINKS: SocialLink[] = [
   { label: "邮箱", href: "3523137931@qq.com", icon: Mail },
-  { label: "GitHub", href: "https://github.com", icon: ExternalLink },
+  { label: "GitHub", href: "https://github.com/xdfqgg", icon: ExternalLink },
   { label: "QQ 群", href: "458159992", icon: MessageCircle },
-  { label: "Telegram", href: "https://t.me", icon: MessageCircle },
 ];
 
 export default function AboutSection() {
