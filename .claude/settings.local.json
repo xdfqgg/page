@@ -20,7 +20,26 @@
       "WebFetch(domain:www.shadcnblocks.com)",
       "WebFetch(domain:tailwindflex.com)",
       "WebFetch(domain:designyff.com)",
-      "WebFetch(domain:codepen.io)"
+      "WebFetch(domain:codepen.io)",
+      "Bash(rm src/components/AvatarWithJelly.tsx)",
+      "Bash(mv src/components/AvatarX.tsx src/components/AvatarWithJelly.tsx)",
+      "Bash(npx vite *)",
+      "Bash(npx wrangler *)",
+      "Bash(powershell *)",
+      "Bash(cd *)",
+      "Bash(xxd)",
+      "Bash(sed -i '53s/.*/          const bx=cx||0,by=cy||0;/' src/components/AvatarWithJelly.tsx)",
+      "Bash(sed -i '54s/.*/          const speed=30+Math.floor\\(Math.random\\(\\)*20\\);/' src/components/AvatarWithJelly.tsx)",
+      "Bash(sed -i '55s/.*/          const id=setInterval\\(\\(\\)=>{/' src/components/AvatarWithJelly.tsx)",
+      "Bash(sed -i '56s/.*/            const dx=\\(Math.random\\(\\)-.5\\)*amp*2;/' src/components/AvatarWithJelly.tsx)",
+      "Bash(sed -i '57s/.*/            const dy=\\(Math.random\\(\\)-.5\\)*amp*2;/' src/components/AvatarWithJelly.tsx)",
+      "Bash(npm run *)",
+      "Bash(powershell -Command \"Add-Type -AssemblyName System.Windows.Forms; [System.Windows.Forms.Clipboard]::GetText\\(\\)\")",
+      "Read(//tmp/**)",
+      "Bash(netstat -ano)",
+      "Bash(awk '{print $2}')",
+      "Bash(tasklist)",
+      "Bash(wmic process *)"
     ]
   }
 }
