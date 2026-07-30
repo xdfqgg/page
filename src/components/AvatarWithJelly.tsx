@@ -82,10 +82,9 @@ interface Particle {
  * AvatarWithJelly — 交互式头像
  *
  * 三种交互：
- *   1. 鼠标追踪 — 头像随光标位置 3D 倾斜（perspective rotate），
- *      光标越近粒子轨道越快
+ *   1. 鼠标追踪 — 头像随光标位置 3D 倾斜（perspective rotate）
  *   2. 点击涟漪 — 以点击位置为中心扩散两圈环形波纹，不破坏头像
- *   3. 轨道粒子 — 四条椭圆轨道 + 呼吸琥珀光晕（自动循环）
+ *   3. 轨道粒子 — 四条椭圆轨道匀速绕行 + 呼吸琥珀光晕（自动循环）
  */
 export default function AvatarWithJelly() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -222,10 +221,8 @@ export default function AvatarWithJelly() {
       ease: "linear",
       loop: true,
       onUpdate: () => {
-        const h = hoverRef.current;
-        const speedMul = 1 + h * 1.5; // 光标靠近时加速，最高 2.5x
         particles.forEach((d) => {
-          const ang = drv.a * d.sp * speedMul + d.o;
+          const ang = drv.a * d.sp + d.o;
           const ca = Math.cos(ang);
           d.el.style.translate = `${ca * d.rx}px ${Math.sin(ang) * d.ry}px`;
           // 深度感：椭圆前半部分粒子移到 frontRef（z-index: 10），后半部分在 backRef（z-index: 0）
