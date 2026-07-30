@@ -84,13 +84,13 @@
 }
 
 .dark {
-    /* ─── 琥珀暖色调 ─── */
-    /* 背景：微微泛暖的深色 */
-    --background: oklch(0.155 0.012 80);
+    /* ─── 琥珀暖色调（透亮版） ─── */
+    /* 背景：泛暖深色，微提亮度让樱花更跳 */
+    --background: oklch(0.175 0.012 80);
     /* 前景文字：暖白 */
     --foreground: oklch(0.95 0.008 85);
     /* 卡片：比背景稍亮，带暖意 */
-    --card: oklch(0.21 0.012 80);
+    --card: oklch(0.225 0.012 80);
     --card-foreground: oklch(0.95 0.008 85);
     /* 弹出层 */
     --popover: oklch(0.21 0.012 80);
@@ -139,6 +139,15 @@
     }
   body {
     @apply bg-background text-foreground;
+    }
+  /* 全局顶部柔光：模拟上方光源照射，让背景"透亮" */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.72 0.15 85 / 0.06) 0%, transparent 70%);
     }
   html {
     @apply font-sans;

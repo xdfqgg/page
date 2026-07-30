@@ -76,8 +76,8 @@ export default function SakuraPetals() {
     const height = window.innerHeight;
     const petalAnims: ReturnType<typeof animate>[] = [];
 
-    // ── 创建花瓣（35 片，分三个景深层） ──
-    for (let i = 0; i < 35; i++) {
+    // ── 创建花瓣（55 片，分三个景深层） ──
+    for (let i = 0; i < 55; i++) {
       const cfg = pickPetal();
       const petal = document.createElement("div");
       const color = COLORS[cfg.layer][Math.floor(Math.random() * COLORS[cfg.layer].length)];
