@@ -62,7 +62,7 @@ export default function Layout() {
       {/* 樱花飘落（fixed 全屏，不受页面滚动影响） */}
       <SakuraPetals />
       {/* ─── 顶部导航栏 ─── */}
-      <header className="sticky top-0 z-50 border-b border-primary/[0.08] bg-background/80 backdrop-blur-xl shadow-[0_1px_3px_rgba(0,0,0,0.3)]">
+      <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-background/70 backdrop-blur-2xl shadow-[0_1px_0_rgba(255,255,255,0.04)_inset,0_1px_3px_rgba(0,0,0,0.4)]">
         <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
           {/* 左侧：Logo + 站点名 */}
           <Link
