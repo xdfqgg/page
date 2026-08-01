@@ -32,7 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return token ? localStorage.getItem("auth_role") : null;
   });
 
-  const isLoggedIn = !!getToken();
+  // 登录态直接派生自 username state，不依赖 localStorage 的 token 是否存在
+  // （避免后端不返回 token 时 username 已设置但 isLoggedIn 仍为 false）
+  const isLoggedIn = username !== null;
 
   /** 登录：调用后端，成功后 token 由 auth.login 内部保存 */
   const login = async (uname: string, pwd: string) => {
