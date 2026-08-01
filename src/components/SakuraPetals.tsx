@@ -67,7 +67,6 @@ function pickPetal(): PetalConfig {
 
 export default function SakuraPetals() {
   const containerRef = useRef<HTMLDivElement>(null);
-  const swayRef = useRef(0);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -83,7 +82,6 @@ export default function SakuraPetals() {
       const color = COLORS[cfg.layer][Math.floor(Math.random() * COLORS[cfg.layer].length)];
 
       // 花瓣形状：不规则椭圆（模拟真实樱花花瓣的顶部缺刻）
-      const asymmetryX = rand(0.3, 0.9);
       const asymmetryY = rand(0.25, 0.65);
       petal.style.cssText = `
         position: absolute;

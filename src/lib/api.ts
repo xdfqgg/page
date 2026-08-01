@@ -9,7 +9,7 @@
  * 4. 类型安全的返回值
  */
 
-import { http, setToken, clearToken, ApiError } from "./http";
+import { http, setToken, clearToken } from "./http";
 
 // ── 用户认证 ──────────────────────────────────────
 

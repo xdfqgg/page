@@ -11,7 +11,7 @@
     "playwright": {
       "type": "stdio",
       "command": "npx",
-      "args": ["@playwright/mcp@latest"]
+      "args": ["@playwright/mcp@latest", "--browser", "chromium", "--channel", "msedge"]
     },
     "context7": {
       "type": "stdio",
