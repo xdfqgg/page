@@ -58,7 +58,7 @@ export default function Layout() {
   const { isLoggedIn, username, logout } = useAuth();
 
   return (
-    <div className="min-h-screen bg-background text-foreground antialiased">
+    <div className="min-h-screen text-foreground antialiased">
       {/* 樱花飘落（fixed 全屏，不受页面滚动影响） */}
       <SakuraPetals />
       {/* ─── 顶部导航栏 ─── */}

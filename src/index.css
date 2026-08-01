@@ -139,29 +139,30 @@
     }
   body {
     @apply bg-background text-foreground;
-    }
-  /* 玻璃质感背景：body 的背景被 Layout 的 bg-background 完全不透明盖住，
-     所以全部图层移到 body::before（position: fixed 于视口之上，盖过普通流内容） */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    background:
+    /* 玻璃质感背景：渐变层写在 body 的 background-image 上，
+       渲染在内容背后，这样卡片的 backdrop-blur 才能模糊到纹理 */
+    background-image:
       /* ④ 微噪点纹理 — 模拟玻璃表面微粒（最上层） */
       url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E"),
       /* ③ 次光带 — 右下对角小光斑 */
       radial-gradient(ellipse 35% 25% at 75% 60%, oklch(0.80 0.04 95 / 0.05) 0%, transparent 65%),
       /* ② 主光带 — 左上对角大面积反光 */
       radial-gradient(ellipse 50% 35% at 30% 15%, oklch(0.85 0.03 85 / 0.07) 0%, transparent 70%),
-      /* ① 虹彩色散 — 四角极淡镀膜反光（每角一个独立 conic 层：CSS 规定 conic-gradient 只能有一个 from/at，合并写法会被浏览器丢弃整条声明） */
+      /* ① 虹彩色散 — 四角极淡镀膜反光 */
       conic-gradient(from 0deg at 15% 20%, oklch(0.55 0.18 320 / 0.04) 0deg, transparent 60deg),
       conic-gradient(from 90deg at 85% 15%, oklch(0.58 0.12 250 / 0.035) 0deg, transparent 60deg),
       conic-gradient(from 180deg at 80% 85%, oklch(0.55 0.15 340 / 0.03) 0deg, transparent 60deg),
-      conic-gradient(from 270deg at 10% 80%, oklch(0.60 0.10 260 / 0.035) 0deg, transparent 60deg),
-      /* 全局顶部柔光：模拟上方光源照射，让背景"透亮"（最底层，保持原样） */
-      radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.72 0.15 85 / 0.06) 0%, transparent 70%);
+      conic-gradient(from 270deg at 10% 80%, oklch(0.60 0.10 260 / 0.035) 0deg, transparent 60deg);
+    background-attachment: fixed;
+    }
+  /* 顶部柔光：独立于 body 背景，从视口上方投射（最上层 overlay） */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    background: radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.72 0.15 85 / 0.06) 0%, transparent 70%);
     }
   html {
     @apply font-sans;
